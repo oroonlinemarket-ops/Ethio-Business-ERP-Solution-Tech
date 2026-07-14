@@ -1,0 +1,931 @@
+import { useState, useEffect, useRef } from "react";
+
+const ETB = n => `ETB ${Number(n).toLocaleString()}`;
+const COLORS = {
+  primary:"#1E40AF", primaryLight:"#3B82F6", gold:"#F59E0B",
+  success:"#10B981", danger:"#EF4444", warning:"#F97316", purple:"#8B5CF6", teal:"#14B8A6"
+};
+const dark = { bg:"#0F172A",card:"#1E293B",border:"#334155",text:"#F1F5F9",muted:"#94A3B8",sidebar:"#0F172A",input:"#1E293B",hover:"#334155" };
+const light = { bg:"#F8FAFC",card:"#FFFFFF",border:"#E2E8F0",text:"#0F172A",muted:"#64748B",sidebar:"#1E293B",input:"#F1F5F9",hover:"#F1F5F9" };
+
+const NAV = [
+  { id:"dashboard",icon:"⊞",label:"Dashboard",am:"ዳሽቦርድ" },
+  { id:"pos",icon:"🛒",label:"Point of Sale",am:"ሽያጭ" },
+  { id:"inventory",icon:"📦",label:"Inventory",am:"እቃ ክምችት" },
+  { id:"sales",icon:"📈",label:"Sales",am:"ሽያጮች" },
+  { id:"finance",icon:"💰",label:"Finance",am:"ፋይናንስ" },
+  { id:"crm",icon:"👥",label:"CRM",am:"ደንበኞች" },
+  { id:"employees",icon:"🏷️",label:"Employees",am:"ሠራተኞች" },
+  { id:"ai",icon:"🤖",label:"AI Insights",am:"AI ትንታኔ" },
+  { id:"reports",icon:"📊",label:"Reports",am:"ሪፖርቶች" },
+  { id:"branches",icon:"🏪",label:"Branches",am:"ቅርንጫፎች" },
+  { id:"settings",icon:"⚙️",label:"Settings",am:"ቅንብሮች" },
+];
+
+const kpis = [
+  { label:"Today's Revenue",value:"ETB 184,250",change:"+12.4%",up:true,icon:"💹",color:COLORS.success },
+  { label:"Transactions",value:"342",change:"+8.1%",up:true,icon:"🧾",color:COLORS.primaryLight },
+  { label:"Items Sold",value:"1,284",change:"+5.3%",up:true,icon:"📦",color:COLORS.purple },
+  { label:"Outstanding Credit",value:"ETB 92,400",change:"+3.2%",up:false,icon:"⚠️",color:COLORS.warning },
+];
+
+const recentTx = [
+  { id:"#4521",customer:"Selam Tesfaye",items:5,total:3250,method:"Telebirr",time:"2 min ago",status:"paid" },
+  { id:"#4520",customer:"Abebe Girma",items:2,total:890,method:"Cash",time:"8 min ago",status:"paid" },
+  { id:"#4519",customer:"Tigist Haile",items:8,total:12400,method:"CBE Birr",time:"15 min ago",status:"paid" },
+  { id:"#4518",customer:"Dawit Bekele",items:3,total:5600,method:"Credit",time:"22 min ago",status:"credit" },
+  { id:"#4517",customer:"Meron Alemu",items:1,total:450,method:"Cash",time:"31 min ago",status:"paid" },
+];
+
+const aiInsights = [
+  { icon:"🔮",title:"Sales Forecast",body:"Projected revenue next 7 days: ETB 1.28M (+15% vs last week). Peak expected Thursday.",color:COLORS.purple },
+  { icon:"⚠️",title:"Low Stock Alert",body:"14 products will run out within 3 days. Top: Injera Flour (8 units left), Sugar 5kg (5 units).",color:COLORS.warning },
+  { icon:"📉",title:"Anomaly Detected",body:"Unusual expense recorded: ETB 24,000 under 'Miscellaneous' on May 27. Review recommended.",color:COLORS.danger },
+  { icon:"🎯",title:"Customer Insight",body:"Top customer Selam Tesfaye hasn't visited in 18 days. Consider sending a loyalty reward.",color:COLORS.gold },
+];
+
+const topProducts = [
+  { name:"Cooking Oil 5L",sold:184,rev:46000,pct:88 },
+  { name:"Sugar 5kg",sold:212,rev:38160,pct:74 },
+  { name:"Rice 25kg",sold:97,rev:35040,pct:68 },
+  { name:"Injera Flour 10kg",sold:143,rev:28600,pct:55 },
+  { name:"Teff 25kg",sold:61,rev:24400,pct:47 },
+];
+
+const weekSales=[42000,58000,49000,71000,63000,88000,72000];
+const weekLabels=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+
+const branches=[
+  { name:"Bole Main",city:"Addis Ababa",rev:"ETB 72,400",tx:138,staff:12,status:"online" },
+  { name:"Merkato",city:"Addis Ababa",rev:"ETB 58,900",tx:124,staff:9,status:"online" },
+  { name:"Piassa",city:"Addis Ababa",rev:"ETB 34,200",tx:61,staff:6,status:"online" },
+  { name:"Bishoftu",city:"Bishoftu",rev:"ETB 18,750",tx:19,staff:4,status:"offline" },
+  { name:"Adama",city:"Adama",rev:"ETB 22,100",tx:33,staff:5,status:"online" },
+];
+
+const inventoryData=[
+  { id:"P001",name:"Cooking Oil 5L",cat:"Grocery",stock:48,reorder:20,price:250,cost:190,status:"ok",supplier:"Nile Trading" },
+  { id:"P002",name:"Sugar 5kg",cat:"Grocery",stock:5,reorder:30,price:180,cost:140,status:"critical",supplier:"Ethio Sugar" },
+  { id:"P003",name:"Rice 25kg",cat:"Grain",stock:22,reorder:15,price:360,cost:290,status:"ok",supplier:"Nile Trading" },
+  { id:"P004",name:"Injera Flour 10kg",cat:"Grain",stock:8,reorder:25,price:200,cost:155,status:"low",supplier:"Local Mills" },
+  { id:"P005",name:"Teff 25kg",cat:"Grain",stock:14,reorder:10,price:400,cost:320,status:"ok",supplier:"Local Mills" },
+  { id:"P006",name:"Milk 1L",cat:"Dairy",stock:60,reorder:40,price:60,cost:45,status:"ok",supplier:"Sebeta Agro" },
+  { id:"P007",name:"Bread Loaf",cat:"Bakery",stock:3,reorder:20,price:25,cost:18,status:"critical",supplier:"Azmera Bakery" },
+  { id:"P008",name:"Tomato Paste 400g",cat:"Grocery",stock:35,reorder:20,price:75,cost:55,status:"ok",supplier:"Nile Trading" },
+];
+
+const customers=[
+  { id:"C001",name:"Selam Tesfaye",phone:"+251911234567",purchases:184,total:92400,points:924,tier:"Gold",lastVisit:"2 days ago",city:"Bole" },
+  { id:"C002",name:"Abebe Girma",phone:"+251922345678",purchases:97,total:43200,points:432,tier:"Silver",lastVisit:"5 days ago",city:"Piassa" },
+  { id:"C003",name:"Tigist Haile",phone:"+251933456789",purchases:210,total:128000,points:1280,tier:"Platinum",lastVisit:"Today",city:"Bole" },
+  { id:"C004",name:"Dawit Bekele",phone:"+251944567890",purchases:43,total:18900,points:189,tier:"Bronze",lastVisit:"18 days ago",city:"Merkato" },
+  { id:"C005",name:"Meron Alemu",phone:"+251955678901",purchases:76,total:34500,points:345,tier:"Silver",lastVisit:"1 day ago",city:"Adama" },
+  { id:"C006",name:"Yonas Tadesse",phone:"+251966789012",purchases:31,total:14200,points:142,tier:"Bronze",lastVisit:"3 days ago",city:"Bishoftu" },
+];
+
+const employees=[
+  { id:"E001",name:"Almaz Kebede",role:"Cashier",branch:"Bole Main",shift:"Morning",salary:8500,attendance:"98%",sales:142000,status:"active" },
+  { id:"E002",name:"Tesfaye Bekele",role:"Store Manager",branch:"Bole Main",shift:"Full Day",salary:18000,attendance:"100%",sales:null,status:"active" },
+  { id:"E003",name:"Hirut Girma",role:"Cashier",branch:"Merkato",shift:"Afternoon",salary:8000,attendance:"95%",sales:98000,status:"active" },
+  { id:"E004",name:"Berhanu Desta",role:"Inventory Manager",branch:"Merkato",shift:"Full Day",salary:12000,attendance:"97%",sales:null,status:"active" },
+  { id:"E005",name:"Selamawit Nega",role:"Cashier",branch:"Piassa",shift:"Morning",salary:7500,attendance:"89%",sales:61000,status:"leave" },
+];
+
+const expenses=[
+  { date:"May 29",cat:"Utilities",desc:"Electricity Bill",amount:4200,type:"expense" },
+  { date:"May 28",cat:"Inventory",desc:"Nile Trading Purchase",amount:84000,type:"expense" },
+  { date:"May 28",cat:"Revenue",desc:"Daily Sales",amount:188400,type:"income" },
+  { date:"May 27",cat:"Payroll",desc:"Monthly Salaries",amount:124000,type:"expense" },
+  { date:"May 27",cat:"Revenue",desc:"Daily Sales",amount:163000,type:"income" },
+  { date:"May 26",cat:"Misc",desc:"Office Supplies",amount:3200,type:"expense" },
+  { date:"May 26",cat:"Revenue",desc:"Daily Sales",amount:178200,type:"income" },
+];
+
+// ─── Sub-components ────────────────────────────────────────────
+
+function MiniBar({ pct, color }) {
+  return (
+    <div style={{ background:"#334155",borderRadius:4,height:6,width:"100%" }}>
+      <div style={{ width:`${pct}%`,background:color,height:6,borderRadius:4,transition:"width 0.8s" }} />
+    </div>
+  );
+}
+
+function Badge({ label, color }) {
+  return <span style={{ background:`${color}22`,color,fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20 }}>{label}</span>;
+}
+
+function SalesChart({ t }) {
+  const max = Math.max(...weekSales);
+  return (
+    <div style={{ display:"flex",alignItems:"flex-end",gap:8,height:110,padding:"0 4px" }}>
+      {weekSales.map((v,i) => {
+        const h = Math.round((v/max)*100);
+        const isToday = i===6;
+        return (
+          <div key={i} style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4 }}>
+            <div style={{ fontSize:9,color:t.muted }}>{Math.round(v/1000)}k</div>
+            <div style={{ width:"100%",height:`${h}%`,background:isToday?`linear-gradient(180deg,${COLORS.primaryLight},${COLORS.primary})`:t.border,borderRadius:"4px 4px 0 0",transition:"height 0.8s" }} />
+            <div style={{ fontSize:10,color:isToday?COLORS.primaryLight:t.muted,fontWeight:isToday?"700":"400" }}>{weekLabels[i]}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StatRow({ label, value, color, t }) {
+  return (
+    <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${t.border}` }}>
+      <span style={{ fontSize:13,color:t.muted }}>{label}</span>
+      <span style={{ fontSize:13,fontWeight:700,color:color||t.text }}>{value}</span>
+    </div>
+  );
+}
+
+// ─── Page Views ────────────────────────────────────────────────
+
+function Dashboard({ t, setActive }) {
+  return (
+    <>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20 }}>
+        {kpis.map((k,i) => (
+          <div key={i} style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16,position:"relative",overflow:"hidden" }}>
+            <div style={{ position:"absolute",right:12,top:12,fontSize:24,opacity:0.12 }}>{k.icon}</div>
+            <div style={{ fontSize:11,color:t.muted,marginBottom:6 }}>{k.label}</div>
+            <div style={{ fontSize:22,fontWeight:800 }}>{k.value}</div>
+            <div style={{ fontSize:12,color:k.up?COLORS.success:COLORS.danger,marginTop:4,fontWeight:600 }}>{k.up?"↑":"↓"} {k.change} vs yesterday</div>
+            <div style={{ height:3,background:k.color,borderRadius:2,marginTop:10,opacity:0.7 }} />
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"grid",gridTemplateColumns:"1.4fr 1fr",gap:14,marginBottom:20 }}>
+        <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+          <div style={{ display:"flex",justifyContent:"space-between",marginBottom:16 }}>
+            <div>
+              <div style={{ fontWeight:700,fontSize:14 }}>Weekly Revenue</div>
+              <div style={{ fontSize:12,color:t.muted }}>May 23 – May 29, 2026</div>
+            </div>
+            <div style={{ fontSize:13,fontWeight:700,color:COLORS.success }}>ETB 443k total</div>
+          </div>
+          <SalesChart t={t} />
+        </div>
+        <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+          <div style={{ fontWeight:700,fontSize:14,marginBottom:12 }}>🤖 AI Insights</div>
+          {aiInsights.slice(0,3).map((ins,i) => (
+            <div key={i} style={{ display:"flex",gap:10,alignItems:"flex-start",marginBottom:10 }}>
+              <span style={{ fontSize:16 }}>{ins.icon}</span>
+              <div>
+                <div style={{ fontSize:12,fontWeight:700,color:ins.color }}>{ins.title}</div>
+                <div style={{ fontSize:11,color:t.muted,lineHeight:1.4,marginTop:2 }}>{ins.body.substring(0,65)}...</div>
+              </div>
+            </div>
+          ))}
+          <button onClick={()=>setActive("ai")} style={{ width:"100%",background:`${COLORS.primary}22`,border:`1px solid ${COLORS.primary}44`,color:COLORS.primaryLight,borderRadius:8,padding:"8px 0",cursor:"pointer",fontSize:12,fontWeight:700,marginTop:4 }}>
+            View All AI Insights →
+          </button>
+        </div>
+      </div>
+      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20 }}>
+        <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+          <div style={{ fontWeight:700,fontSize:14,marginBottom:14 }}>🧾 Recent Transactions</div>
+          {recentTx.map((tx,i) => (
+            <div key={i} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:i<recentTx.length-1?`1px solid ${t.border}`:undefined }}>
+              <div style={{ display:"flex",gap:10,alignItems:"center" }}>
+                <div style={{ width:34,height:34,borderRadius:8,background:`${COLORS.primaryLight}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:COLORS.primaryLight }}>
+                  {tx.customer.split(" ").map(w=>w[0]).join("")}
+                </div>
+                <div>
+                  <div style={{ fontSize:13,fontWeight:600 }}>{tx.customer}</div>
+                  <div style={{ fontSize:11,color:t.muted }}>{tx.id} • {tx.items} items • {tx.time}</div>
+                </div>
+              </div>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:13,fontWeight:700 }}>ETB {tx.total.toLocaleString()}</div>
+                <div style={{ fontSize:11,fontWeight:600,color:tx.status==="credit"?COLORS.warning:COLORS.success }}>{tx.method}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+          <div style={{ fontWeight:700,fontSize:14,marginBottom:14 }}>📦 Top Products Today</div>
+          {topProducts.map((p,i) => (
+            <div key={i} style={{ marginBottom:12 }}>
+              <div style={{ display:"flex",justifyContent:"space-between",fontSize:13 }}>
+                <span style={{ fontWeight:600 }}>{p.name}</span>
+                <span style={{ color:t.muted }}>ETB {p.rev.toLocaleString()}</span>
+              </div>
+              <div style={{ display:"flex",alignItems:"center",gap:8,marginTop:4 }}>
+                <div style={{ flex:1 }}><MiniBar pct={p.pct} color={COLORS.primaryLight} /></div>
+                <span style={{ fontSize:11,color:t.muted,width:48,textAlign:"right" }}>{p.sold} sold</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+        <div style={{ fontWeight:700,fontSize:14,marginBottom:14 }}>🏪 Branch Overview</div>
+        <div style={{ display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10 }}>
+          {branches.map((b,i) => (
+            <div key={i} style={{ background:t.hover,borderRadius:10,padding:14,border:`1px solid ${t.border}` }}>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
+                <span style={{ fontSize:12,fontWeight:700 }}>{b.name}</span>
+                <span style={{ width:8,height:8,borderRadius:"50%",background:b.status==="online"?COLORS.success:COLORS.danger,display:"inline-block" }} />
+              </div>
+              <div style={{ fontSize:13,fontWeight:800 }}>{b.rev}</div>
+              <div style={{ fontSize:11,color:t.muted,marginTop:3 }}>{b.tx} transactions</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function POSView({ t }) {
+  const items=[
+    { name:"Cooking Oil 5L",price:250,cat:"Grocery",barcode:"8001" },
+    { name:"Sugar 5kg",price:180,cat:"Grocery",barcode:"8002" },
+    { name:"Rice 25kg",price:360,cat:"Grain",barcode:"8003" },
+    { name:"Teff 25kg",price:400,cat:"Grain",barcode:"8004" },
+    { name:"Bread Loaf",price:25,cat:"Bakery",barcode:"8005" },
+    { name:"Milk 1L",price:60,cat:"Dairy",barcode:"8006" },
+    { name:"Tomato Paste",price:75,cat:"Grocery",barcode:"8007" },
+    { name:"Injera Flour",price:200,cat:"Grain",barcode:"8008" },
+  ];
+  const [cart,setCart]=useState([]);
+  const [method,setMethod]=useState("Cash");
+  const [search,setSearch]=useState("");
+  const [paid,setPaid]=useState(false);
+  const total=cart.reduce((a,c)=>a+c.price*c.qty,0);
+  const tax=Math.round(total*0.15);
+  const filtered=items.filter(i=>i.name.toLowerCase().includes(search.toLowerCase()));
+  const add=item=>setCart(p=>{const ex=p.find(x=>x.name===item.name);return ex?p.map(x=>x.name===item.name?{...x,qty:x.qty+1}:x):[...p,{...item,qty:1}];});
+  const rem=name=>setCart(p=>p.map(x=>x.name===name&&x.qty>1?{...x,qty:x.qty-1}:x).filter(x=>x.qty>0));
+  const charge=()=>{if(cart.length){setPaid(true);setTimeout(()=>{setCart([]);setPaid(false);},2000);}};
+
+  return (
+    <div style={{ display:"flex",gap:16,height:"calc(100vh - 120px)" }}>
+      <div style={{ flex:1.3,display:"flex",flexDirection:"column",gap:12 }}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search product or scan barcode..."
+          style={{ background:t.input,border:`1px solid ${t.border}`,borderRadius:10,padding:"10px 14px",color:t.text,fontSize:13,outline:"none" }} />
+        <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,overflowY:"auto",flex:1 }}>
+          {filtered.map(item=>(
+            <button key={item.name} onClick={()=>add(item)} style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:10,padding:12,cursor:"pointer",textAlign:"left",color:t.text,transition:"all 0.2s" }}>
+              <div style={{ fontSize:11,color:t.muted,marginBottom:2 }}>{item.barcode} • {item.cat}</div>
+              <div style={{ fontSize:13,fontWeight:700 }}>{item.name}</div>
+              <div style={{ fontSize:15,fontWeight:800,color:COLORS.primaryLight,marginTop:6 }}>ETB {item.price}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ width:300,background:t.card,borderRadius:14,padding:16,border:`1px solid ${t.border}`,display:"flex",flexDirection:"column" }}>
+        <div style={{ fontWeight:800,fontSize:15,marginBottom:4 }}>🧾 Receipt</div>
+        <div style={{ fontSize:11,color:t.muted,marginBottom:12 }}>Cashier: Almaz • Bole Main</div>
+        {paid && <div style={{ textAlign:"center",padding:20,color:COLORS.success,fontWeight:700,fontSize:16 }}>✅ Payment Successful!</div>}
+        {!paid && <>
+          <div style={{ flex:1,overflowY:"auto" }}>
+            {cart.length===0 ? <div style={{ color:t.muted,fontSize:13,textAlign:"center",marginTop:40 }}>Add items to start sale</div> :
+              cart.map(c=>(
+                <div key={c.name} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${t.border}` }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:12,fontWeight:600 }}>{c.name}</div>
+                    <div style={{ display:"flex",gap:6,alignItems:"center",marginTop:4 }}>
+                      <button onClick={()=>rem(c.name)} style={{ width:20,height:20,borderRadius:4,border:`1px solid ${t.border}`,background:t.hover,color:t.text,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center" }}>−</button>
+                      <span style={{ fontSize:12,fontWeight:700,minWidth:16,textAlign:"center" }}>{c.qty}</span>
+                      <button onClick={()=>add(c)} style={{ width:20,height:20,borderRadius:4,border:`1px solid ${t.border}`,background:t.hover,color:t.text,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center" }}>+</button>
+                    </div>
+                  </div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ fontSize:13,fontWeight:700 }}>ETB {(c.price*c.qty).toLocaleString()}</div>
+                    <div style={{ fontSize:11,color:t.muted }}>@ ETB {c.price}</div>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+          <div style={{ borderTop:`1px solid ${t.border}`,paddingTop:12,marginTop:8 }}>
+            <StatRow label="Subtotal" value={ETB(total)} t={t} />
+            <StatRow label="VAT (15%)" value={ETB(tax)} t={t} />
+            <div style={{ display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:16,color:t.text,margin:"10px 0 12px" }}>
+              <span>Total</span><span style={{ color:COLORS.success }}>{ETB(total+tax)}</span>
+            </div>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10 }}>
+              {["Cash","Telebirr","CBE Birr","Credit"].map(m=>(
+                <button key={m} onClick={()=>setMethod(m)} style={{ background:method===m?COLORS.primary:t.hover,border:`1px solid ${method===m?COLORS.primary:t.border}`,borderRadius:8,padding:"7px 0",color:method===m?"#fff":t.text,cursor:"pointer",fontSize:12,fontWeight:600 }}>{m}</button>
+              ))}
+            </div>
+            <button onClick={charge} style={{ width:"100%",background:`linear-gradient(90deg,${COLORS.primary},${COLORS.primaryLight})`,color:"#fff",border:"none",borderRadius:10,padding:13,fontWeight:800,fontSize:14,cursor:"pointer" }}>
+              ✓ Charge {ETB(total+tax)}
+            </button>
+          </div>
+        </>}
+      </div>
+    </div>
+  );
+}
+
+function InventoryView({ t }) {
+  const [search,setSearch]=useState("");
+  const [filter,setFilter]=useState("all");
+  const filtered=inventoryData.filter(p=>{
+    const matchSearch=p.name.toLowerCase().includes(search.toLowerCase())||p.id.toLowerCase().includes(search.toLowerCase());
+    const matchFilter=filter==="all"||(filter==="low"&&(p.status==="low"||p.status==="critical"))||(filter==="ok"&&p.status==="ok");
+    return matchSearch&&matchFilter;
+  });
+  const statusColor={ ok:COLORS.success, low:COLORS.warning, critical:COLORS.danger };
+  return (
+    <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12 }}>
+        {[{label:"Total SKUs",val:inventoryData.length,icon:"📦",c:COLORS.primaryLight},
+          {label:"Low Stock",val:inventoryData.filter(p=>p.status==="low").length,icon:"⚠️",c:COLORS.warning},
+          {label:"Critical",val:inventoryData.filter(p=>p.status==="critical").length,icon:"🚨",c:COLORS.danger},
+          {label:"Total Value",val:"ETB 284,500",icon:"💰",c:COLORS.success}
+        ].map((s,i)=>(
+          <div key={i} style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:14 }}>
+            <div style={{ fontSize:11,color:t.muted }}>{s.icon} {s.label}</div>
+            <div style={{ fontSize:22,fontWeight:800,color:s.c,marginTop:4 }}>{s.val}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+        <div style={{ display:"flex",gap:10,marginBottom:14,alignItems:"center" }}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search products..."
+            style={{ flex:1,background:t.input,border:`1px solid ${t.border}`,borderRadius:8,padding:"9px 14px",color:t.text,fontSize:13,outline:"none" }} />
+          {["all","low","ok"].map(f=>(
+            <button key={f} onClick={()=>setFilter(f)} style={{ background:filter===f?COLORS.primary:t.hover,border:`1px solid ${filter===f?COLORS.primary:t.border}`,color:filter===f?"#fff":t.text,borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:600,textTransform:"capitalize" }}>{f==="low"?"⚠️ Low Stock":f==="ok"?"✅ OK":f}</button>
+          ))}
+          <button style={{ background:COLORS.success,color:"#fff",border:"none",borderRadius:8,padding:"9px 16px",cursor:"pointer",fontSize:12,fontWeight:700 }}>+ Add Product</button>
+        </div>
+        <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+          <thead>
+            <tr style={{ borderBottom:`2px solid ${t.border}` }}>
+              {["SKU","Product Name","Category","Stock","Reorder At","Price","Cost","Supplier","Status"].map(h=>(
+                <th key={h} style={{ textAlign:"left",padding:"8px 10px",color:t.muted,fontWeight:600,fontSize:11 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((p,i)=>(
+              <tr key={i} style={{ borderBottom:`1px solid ${t.border}`,background:i%2===0?"transparent":`${t.hover}55` }}>
+                <td style={{ padding:"10px 10px",color:t.muted,fontSize:12 }}>{p.id}</td>
+                <td style={{ padding:"10px 10px",fontWeight:600 }}>{p.name}</td>
+                <td style={{ padding:"10px 10px",color:t.muted }}>{p.cat}</td>
+                <td style={{ padding:"10px 10px",fontWeight:700,color:p.stock<=p.reorder?COLORS.danger:t.text }}>{p.stock} units</td>
+                <td style={{ padding:"10px 10px",color:t.muted }}>{p.reorder}</td>
+                <td style={{ padding:"10px 10px" }}>ETB {p.price}</td>
+                <td style={{ padding:"10px 10px",color:t.muted }}>ETB {p.cost}</td>
+                <td style={{ padding:"10px 10px",color:t.muted,fontSize:12 }}>{p.supplier}</td>
+                <td style={{ padding:"10px 10px" }}><Badge label={p.status.toUpperCase()} color={statusColor[p.status]} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function SalesView({ t }) {
+  const monthly=[120,145,132,178,162,194,158,210,188,224,196,231];
+  const cats=["Grocery","Grain","Dairy","Bakery","Other"];
+  const catVals=[42,28,15,10,5];
+  const max=Math.max(...monthly);
+  return (
+    <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12 }}>
+        {[{label:"This Month",val:"ETB 1.24M",ch:"+18%",up:true},{label:"Last Month",val:"ETB 1.05M",ch:"+11%",up:true},{label:"Avg Basket",val:"ETB 538",ch:"+5%",up:true},{label:"Return Rate",val:"1.2%",ch:"-0.3%",up:true}].map((s,i)=>(
+          <div key={i} style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:14 }}>
+            <div style={{ fontSize:11,color:t.muted }}>{s.label}</div>
+            <div style={{ fontSize:20,fontWeight:800,marginTop:4 }}>{s.val}</div>
+            <div style={{ fontSize:12,color:COLORS.success,marginTop:4 }}>{s.up?"↑":""} {s.ch}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"grid",gridTemplateColumns:"2fr 1fr",gap:16 }}>
+        <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+          <div style={{ fontWeight:700,fontSize:14,marginBottom:16 }}>Monthly Sales — 2026</div>
+          <div style={{ display:"flex",alignItems:"flex-end",gap:6,height:120 }}>
+            {monthly.map((v,i)=>{
+              const h=Math.round((v/max)*100);
+              const isCur=i===4;
+              return (
+                <div key={i} style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3 }}>
+                  <div style={{ fontSize:9,color:t.muted }}>{v}k</div>
+                  <div style={{ width:"100%",height:`${h}%`,background:isCur?`linear-gradient(180deg,${COLORS.gold},${COLORS.warning})`:isCur?COLORS.primary:`${COLORS.primaryLight}55`,borderRadius:"3px 3px 0 0" }} />
+                  <div style={{ fontSize:9,color:isCur?COLORS.gold:t.muted,fontWeight:isCur?"700":"400" }}>
+                    {["J","F","M","A","M","J","J","A","S","O","N","D"][i]}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+          <div style={{ fontWeight:700,fontSize:14,marginBottom:14 }}>Sales by Category</div>
+          {cats.map((c,i)=>(
+            <div key={i} style={{ marginBottom:12 }}>
+              <div style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4 }}>
+                <span>{c}</span><span style={{ color:t.muted }}>{catVals[i]}%</span>
+              </div>
+              <MiniBar pct={catVals[i]*2} color={[COLORS.primaryLight,COLORS.purple,COLORS.teal,COLORS.gold,COLORS.warning][i]} />
+            </div>
+          ))}
+          <div style={{ marginTop:14,paddingTop:12,borderTop:`1px solid ${t.border}` }}>
+            <div style={{ fontWeight:700,fontSize:13,marginBottom:8 }}>Payment Methods</div>
+            {[["Cash","38%",COLORS.success],["Telebirr","32%",COLORS.primaryLight],["CBE Birr","21%",COLORS.purple],["Credit","9%",COLORS.warning]].map(([m,p,c],i)=>(
+              <div key={i} style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6 }}>
+                <span style={{ color:t.muted }}>{m}</span>
+                <Badge label={p} color={c} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+        <div style={{ fontWeight:700,fontSize:14,marginBottom:14 }}>🧾 Recent Sales</div>
+        <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+          <thead>
+            <tr style={{ borderBottom:`2px solid ${t.border}` }}>
+              {["Invoice","Customer","Items","Subtotal","VAT","Total","Method","Status"].map(h=>(
+                <th key={h} style={{ textAlign:"left",padding:"8px 10px",color:t.muted,fontWeight:600,fontSize:11 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {recentTx.map((tx,i)=>(
+              <tr key={i} style={{ borderBottom:`1px solid ${t.border}` }}>
+                <td style={{ padding:"10px 10px",color:COLORS.primaryLight,fontWeight:600 }}>{tx.id}</td>
+                <td style={{ padding:"10px 10px",fontWeight:600 }}>{tx.customer}</td>
+                <td style={{ padding:"10px 10px",color:t.muted }}>{tx.items}</td>
+                <td style={{ padding:"10px 10px" }}>ETB {Math.round(tx.total/1.15).toLocaleString()}</td>
+                <td style={{ padding:"10px 10px",color:t.muted }}>ETB {Math.round(tx.total*0.15/1.15).toLocaleString()}</td>
+                <td style={{ padding:"10px 10px",fontWeight:700 }}>ETB {tx.total.toLocaleString()}</td>
+                <td style={{ padding:"10px 10px",color:t.muted }}>{tx.method}</td>
+                <td style={{ padding:"10px 10px" }}><Badge label={tx.status==="paid"?"PAID":"CREDIT"} color={tx.status==="paid"?COLORS.success:COLORS.warning} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FinanceView({ t }) {
+  const income=expenses.filter(e=>e.type==="income").reduce((a,e)=>a+e.amount,0);
+  const expTotal=expenses.filter(e=>e.type==="expense").reduce((a,e)=>a+e.amount,0);
+  const profit=income-expTotal;
+  return (
+    <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12 }}>
+        {[{label:"Total Revenue",val:ETB(income),color:COLORS.success},{label:"Total Expenses",val:ETB(expTotal),color:COLORS.danger},{label:"Net Profit",val:ETB(profit),color:profit>0?COLORS.success:COLORS.danger},{label:"Profit Margin",val:`${Math.round((profit/income)*100)}%`,color:COLORS.purple}].map((s,i)=>(
+          <div key={i} style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:14 }}>
+            <div style={{ fontSize:11,color:t.muted }}>{s.label}</div>
+            <div style={{ fontSize:20,fontWeight:800,color:s.color,marginTop:4 }}>{s.val}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"grid",gridTemplateColumns:"1.5fr 1fr",gap:16 }}>
+        <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+          <div style={{ fontWeight:700,fontSize:14,marginBottom:14 }}>📋 Ledger</div>
+          {expenses.map((e,i)=>(
+            <div key={i} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${t.border}` }}>
+              <div style={{ display:"flex",gap:10,alignItems:"center" }}>
+                <div style={{ width:8,height:8,borderRadius:"50%",background:e.type==="income"?COLORS.success:COLORS.danger,flexShrink:0 }} />
+                <div>
+                  <div style={{ fontSize:13,fontWeight:600 }}>{e.desc}</div>
+                  <div style={{ fontSize:11,color:t.muted }}>{e.cat} • {e.date}</div>
+                </div>
+              </div>
+              <div style={{ fontWeight:700,fontSize:13,color:e.type==="income"?COLORS.success:COLORS.danger }}>
+                {e.type==="income"?"+":"-"}{ETB(e.amount)}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+          <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+            <div style={{ fontWeight:700,fontSize:14,marginBottom:12 }}>💳 Credit Sales Tracker</div>
+            <StatRow label="Total Outstanding" value="ETB 92,400" t={t} color={COLORS.warning} />
+            <StatRow label="Customers with Credit" value="12" t={t} />
+            <StatRow label="Overdue (>30 days)" value="ETB 18,200" t={t} color={COLORS.danger} />
+            <StatRow label="Collected This Month" value="ETB 44,600" t={t} color={COLORS.success} />
+          </div>
+          <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+            <div style={{ fontWeight:700,fontSize:14,marginBottom:12 }}>🧾 VAT Summary</div>
+            <StatRow label="Taxable Sales" value="ETB 529,000" t={t} />
+            <StatRow label="VAT Collected (15%)" value="ETB 79,350" t={t} color={COLORS.primaryLight} />
+            <StatRow label="VAT Payable" value="ETB 79,350" t={t} color={COLORS.danger} />
+            <StatRow label="Filing Due" value="June 30, 2026" t={t} />
+            <button style={{ width:"100%",marginTop:12,background:COLORS.primary,color:"#fff",border:"none",borderRadius:8,padding:10,fontWeight:700,cursor:"pointer",fontSize:13 }}>
+              📄 Generate VAT Report
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CRMView({ t }) {
+  const [search,setSearch]=useState("");
+  const filtered=customers.filter(c=>c.name.toLowerCase().includes(search.toLowerCase())||c.phone.includes(search));
+  const tierColor={ Platinum:COLORS.teal, Gold:COLORS.gold, Silver:"#94A3B8", Bronze:"#CD7F32" };
+  return (
+    <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12 }}>
+        {[{label:"Total Customers",val:customers.length,c:COLORS.primaryLight},{label:"Active (30d)",val:4,c:COLORS.success},{label:"Loyalty Points Issued",val:"3,312",c:COLORS.gold},{label:"Avg Lifetime Value",val:"ETB 55,200",c:COLORS.purple}].map((s,i)=>(
+          <div key={i} style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:14 }}>
+            <div style={{ fontSize:11,color:t.muted }}>{s.label}</div>
+            <div style={{ fontSize:22,fontWeight:800,color:s.c,marginTop:4 }}>{s.val}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+        <div style={{ display:"flex",justifyContent:"space-between",marginBottom:14,alignItems:"center" }}>
+          <div style={{ fontWeight:700,fontSize:14 }}>👥 Customer Directory</div>
+          <div style={{ display:"flex",gap:10 }}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search customers..." style={{ background:t.input,border:`1px solid ${t.border}`,borderRadius:8,padding:"8px 14px",color:t.text,fontSize:13,outline:"none" }} />
+            <button style={{ background:COLORS.primary,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700 }}>+ Add Customer</button>
+          </div>
+        </div>
+        <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+          <thead>
+            <tr style={{ borderBottom:`2px solid ${t.border}` }}>
+              {["Customer","Phone","City","Purchases","Total Spent","Points","Tier","Last Visit"].map(h=>(
+                <th key={h} style={{ textAlign:"left",padding:"8px 10px",color:t.muted,fontWeight:600,fontSize:11 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((c,i)=>(
+              <tr key={i} style={{ borderBottom:`1px solid ${t.border}`,background:i%2===0?"transparent":`${t.hover}55` }}>
+                <td style={{ padding:"10px 10px" }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                    <div style={{ width:30,height:30,borderRadius:"50%",background:`${COLORS.primaryLight}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:COLORS.primaryLight }}>
+                      {c.name.split(" ").map(w=>w[0]).join("")}
+                    </div>
+                    <span style={{ fontWeight:600 }}>{c.name}</span>
+                  </div>
+                </td>
+                <td style={{ padding:"10px 10px",color:t.muted }}>{c.phone}</td>
+                <td style={{ padding:"10px 10px",color:t.muted }}>{c.city}</td>
+                <td style={{ padding:"10px 10px",fontWeight:700 }}>{c.purchases}</td>
+                <td style={{ padding:"10px 10px",fontWeight:700,color:COLORS.success }}>ETB {c.total.toLocaleString()}</td>
+                <td style={{ padding:"10px 10px" }}><span style={{ color:COLORS.gold,fontWeight:700 }}>⭐ {c.points}</span></td>
+                <td style={{ padding:"10px 10px" }}><Badge label={c.tier} color={tierColor[c.tier]} /></td>
+                <td style={{ padding:"10px 10px",color:t.muted,fontSize:12 }}>{c.lastVisit}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function EmployeesView({ t }) {
+  const roleColor={ Cashier:COLORS.primaryLight, "Store Manager":COLORS.purple, "Inventory Manager":COLORS.teal };
+  const statusColor={ active:COLORS.success, leave:COLORS.warning };
+  return (
+    <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12 }}>
+        {[{label:"Total Employees",val:employees.length,c:COLORS.primaryLight},{label:"Active Today",val:4,c:COLORS.success},{label:"On Leave",val:1,c:COLORS.warning},{label:"Monthly Payroll",val:"ETB 54,000",c:COLORS.danger}].map((s,i)=>(
+          <div key={i} style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:14 }}>
+            <div style={{ fontSize:11,color:t.muted }}>{s.label}</div>
+            <div style={{ fontSize:20,fontWeight:800,color:s.c,marginTop:4 }}>{s.val}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+        <div style={{ display:"flex",justifyContent:"space-between",marginBottom:14 }}>
+          <div style={{ fontWeight:700,fontSize:14 }}>🏷️ Employee Directory</div>
+          <button style={{ background:COLORS.primary,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700 }}>+ Add Employee</button>
+        </div>
+        <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+          <thead>
+            <tr style={{ borderBottom:`2px solid ${t.border}` }}>
+              {["Employee","Role","Branch","Shift","Salary","Attendance","Monthly Sales","Status"].map(h=>(
+                <th key={h} style={{ textAlign:"left",padding:"8px 10px",color:t.muted,fontWeight:600,fontSize:11 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {employees.map((e,i)=>(
+              <tr key={i} style={{ borderBottom:`1px solid ${t.border}`,background:i%2===0?"transparent":`${t.hover}55` }}>
+                <td style={{ padding:"10px 10px" }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                    <div style={{ width:30,height:30,borderRadius:"50%",background:`${COLORS.purple}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:COLORS.purple }}>
+                      {e.name.split(" ").map(w=>w[0]).join("")}
+                    </div>
+                    <span style={{ fontWeight:600 }}>{e.name}</span>
+                  </div>
+                </td>
+                <td style={{ padding:"10px 10px" }}><Badge label={e.role} color={roleColor[e.role]||COLORS.gold} /></td>
+                <td style={{ padding:"10px 10px",color:t.muted }}>{e.branch}</td>
+                <td style={{ padding:"10px 10px",color:t.muted }}>{e.shift}</td>
+                <td style={{ padding:"10px 10px",fontWeight:700 }}>ETB {e.salary.toLocaleString()}</td>
+                <td style={{ padding:"10px 10px",fontWeight:700,color:parseInt(e.attendance)>=95?COLORS.success:COLORS.warning }}>{e.attendance}</td>
+                <td style={{ padding:"10px 10px",color:t.muted }}>{e.sales?ETB(e.sales):"—"}</td>
+                <td style={{ padding:"10px 10px" }}><Badge label={e.status.toUpperCase()} color={statusColor[e.status]} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function AIView({ t }) {
+  const [msg,setMsg]=useState("");
+  const [chat,setChat]=useState([{ role:"ai",text:"Hello! I'm your AI Business Assistant for EthioPOS. Ask me anything about your sales, inventory, finances, or get business advice. You can also ask in Amharic (አማርኛ)!" }]);
+  const [loading,setLoading]=useState(false);
+  const bottomRef=useRef(null);
+  useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:"smooth"}); },[chat]);
+
+  const send=async()=>{
+    if(!msg.trim()) return;
+    const userMsg=msg; setMsg(""); setLoading(true);
+    setChat(p=>[...p,{role:"user",text:userMsg}]);
+    try {
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",max_tokens:1000,
+        system:`You are an AI Business Assistant for EthioPOS — a POS & Business Management System for Ethiopian and African SMEs. Help with: sales analytics, inventory advice, financial insights, customer management, VAT (Ethiopia: 15%), Telebirr/CBE Birr payments, and general business guidance. Currency is Ethiopian Birr (ETB). Keep answers concise and practical. If asked in Amharic, respond in Amharic.`,
+        messages:[...chat.map(c=>({role:c.role==="ai"?"assistant":"user",content:c.text})),{role:"user",content:userMsg}]
+      })});
+      const data=await res.json();
+      const reply=data.content?.find(b=>b.type==="text")?.text||"Sorry, I couldn't process that. Please try again.";
+      setChat(p=>[...p,{role:"ai",text:reply}]);
+    } catch { setChat(p=>[...p,{role:"ai",text:"Connection error. Please check your internet connection."}]); }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ display:"flex",flexDirection:"column",gap:16,height:"calc(100vh - 120px)" }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,flexShrink:0 }}>
+        {aiInsights.map((ins,i)=>(
+          <div key={i} style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:14 }}>
+            <div style={{ display:"flex",gap:8,alignItems:"center",marginBottom:6 }}>
+              <span style={{ fontSize:16 }}>{ins.icon}</span>
+              <span style={{ fontWeight:700,fontSize:13,color:ins.color }}>{ins.title}</span>
+            </div>
+            <div style={{ fontSize:12,color:t.muted,lineHeight:1.5 }}>{ins.body}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ flex:1,background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16,display:"flex",flexDirection:"column",minHeight:0 }}>
+        <div style={{ fontWeight:700,fontSize:14,marginBottom:12 }}>🤖 AI Business Assistant</div>
+        <div style={{ flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:8,marginBottom:12 }}>
+          {chat.map((c,i)=>(
+            <div key={i} style={{ display:"flex",justifyContent:c.role==="user"?"flex-end":"flex-start" }}>
+              <div style={{ maxWidth:"80%",padding:"10px 14px",borderRadius:12,fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap",background:c.role==="user"?COLORS.primary:t.hover,color:c.role==="user"?"#fff":t.text,borderBottomRightRadius:c.role==="user"?2:12,borderBottomLeftRadius:c.role==="ai"?2:12 }}>{c.text}</div>
+            </div>
+          ))}
+          {loading&&<div style={{ fontSize:12,color:t.muted,alignSelf:"flex-start",padding:"8px 14px",background:t.hover,borderRadius:12 }}>🤖 Thinking...</div>}
+          <div ref={bottomRef} />
+        </div>
+        <div style={{ display:"flex",gap:8 }}>
+          <input value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!loading&&send()}
+            placeholder="Ask about sales, inventory, finances, VAT... (English or አማርኛ)"
+            style={{ flex:1,background:t.input,border:`1px solid ${t.border}`,borderRadius:10,padding:"10px 14px",color:t.text,fontSize:13,outline:"none" }} />
+          <button onClick={send} disabled={loading} style={{ background:loading?t.border:COLORS.primary,color:loading?t.muted:"#fff",border:"none",borderRadius:10,padding:"10px 20px",fontWeight:700,cursor:loading?"default":"pointer",fontSize:13 }}>Send</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportsView({ t }) {
+  const reports=[
+    { icon:"📈",title:"Sales Report",desc:"Daily, weekly, monthly, and annual sales breakdown with trends.",period:"May 2026" },
+    { icon:"📦",title:"Inventory Report",desc:"Stock levels, movement, low stock alerts, and valuation.",period:"Real-time" },
+    { icon:"💰",title:"P&L Statement",desc:"Profit & Loss with revenue, COGS, gross and net profit.",period:"May 2026" },
+    { icon:"🧾",title:"VAT Report",desc:"VAT collected, payable, and filing summary for ERCA compliance.",period:"Q2 2026" },
+    { icon:"👥",title:"CRM Report",desc:"Customer acquisition, retention, loyalty points, and LTV.",period:"May 2026" },
+    { icon:"🏪",title:"Branch Comparison",desc:"Side-by-side performance of all branches and KPIs.",period:"May 2026" },
+    { icon:"🏷️",title:"Payroll Report",desc:"Employee salaries, attendance, and payroll summary.",period:"May 2026" },
+    { icon:"📊",title:"Expense Report",desc:"Categorized expense breakdown and budget vs actuals.",period:"May 2026" },
+  ];
+  return (
+    <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
+      <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+        <div style={{ fontWeight:700,fontSize:14,marginBottom:14 }}>📊 Business Reports</div>
+        <div style={{ display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10 }}>
+          {reports.map((r,i)=>(
+            <div key={i} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",background:t.hover,borderRadius:10,padding:"14px 16px",border:`1px solid ${t.border}` }}>
+              <div style={{ display:"flex",gap:12,alignItems:"center" }}>
+                <div style={{ fontSize:24 }}>{r.icon}</div>
+                <div>
+                  <div style={{ fontWeight:700,fontSize:13 }}>{r.title}</div>
+                  <div style={{ fontSize:11,color:t.muted,marginTop:2,maxWidth:280 }}>{r.desc}</div>
+                  <div style={{ fontSize:11,color:COLORS.primaryLight,marginTop:4 }}>Period: {r.period}</div>
+                </div>
+              </div>
+              <div style={{ display:"flex",flexDirection:"column",gap:6,flexShrink:0 }}>
+                <button style={{ background:COLORS.primary,color:"#fff",border:"none",borderRadius:6,padding:"6px 12px",cursor:"pointer",fontSize:11,fontWeight:700 }}>📄 PDF</button>
+                <button style={{ background:COLORS.success,color:"#fff",border:"none",borderRadius:6,padding:"6px 12px",cursor:"pointer",fontSize:11,fontWeight:700 }}>📊 Excel</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BranchesView({ t }) {
+  return (
+    <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:12 }}>
+        {branches.map((b,i)=>(
+          <div key={i} style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
+              <div style={{ fontWeight:800,fontSize:14 }}>{b.name}</div>
+              <span style={{ width:9,height:9,borderRadius:"50%",background:b.status==="online"?COLORS.success:COLORS.danger,display:"inline-block" }} />
+            </div>
+            <div style={{ fontSize:12,color:t.muted,marginBottom:10 }}>📍 {b.city}</div>
+            <StatRow label="Revenue" value={b.rev} t={t} color={COLORS.success} />
+            <StatRow label="Transactions" value={b.tx} t={t} />
+            <StatRow label="Staff" value={b.staff} t={t} />
+            <div style={{ marginTop:10 }}><Badge label={b.status.toUpperCase()} color={b.status==="online"?COLORS.success:COLORS.danger} /></div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+        <div style={{ fontWeight:700,fontSize:14,marginBottom:14 }}>📊 Branch Revenue Comparison</div>
+        <div style={{ display:"flex",alignItems:"flex-end",gap:20,height:120 }}>
+          {branches.map((b,i)=>{
+            const val=parseInt(b.rev.replace(/[^0-9]/g,""));
+            const max=72400; const h=Math.round((val/max)*100);
+            return (
+              <div key={i} style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6 }}>
+                <div style={{ fontSize:11,color:t.muted }}>{b.rev}</div>
+                <div style={{ width:"100%",height:`${h}%`,background:b.status==="offline"?t.border:`linear-gradient(180deg,${COLORS.primaryLight},${COLORS.primary})`,borderRadius:"4px 4px 0 0",minHeight:4 }} />
+                <div style={{ fontSize:11,color:t.text,fontWeight:600,textAlign:"center" }}>{b.name}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsView({ t, darkMode, setDarkMode, lang, setLang }) {
+  const [notif,setNotif]=useState({lowStock:true,dailySummary:true,creditAlert:true,vatReminder:false});
+  return (
+    <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
+        <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+          <div style={{ fontWeight:700,fontSize:14,marginBottom:14 }}>🎨 Appearance</div>
+          {[{label:"Dark Mode",sub:"Switch between dark and light themes",val:darkMode,set:setDarkMode},{label:"Compact Mode",sub:"Reduce spacing for more data",val:false,set:()=>{}}].map((s,i)=>(
+            <div key={i} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${t.border}` }}>
+              <div>
+                <div style={{ fontSize:13,fontWeight:600 }}>{s.label}</div>
+                <div style={{ fontSize:11,color:t.muted,marginTop:2 }}>{s.sub}</div>
+              </div>
+              <button onClick={()=>s.set(p=>!p)} style={{ width:44,height:24,borderRadius:12,background:s.val?COLORS.primary:t.border,border:"none",cursor:"pointer",position:"relative",transition:"background 0.3s" }}>
+                <div style={{ width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:s.val?23:3,transition:"left 0.3s" }} />
+              </button>
+            </div>
+          ))}
+          <div style={{ padding:"12px 0" }}>
+            <div style={{ fontSize:13,fontWeight:600,marginBottom:8 }}>Language</div>
+            <div style={{ display:"flex",gap:8 }}>
+              {[["en","🇬🇧 English"],["am","🇪🇹 አማርኛ"]].map(([code,label])=>(
+                <button key={code} onClick={()=>setLang(code)} style={{ flex:1,padding:"9px 0",borderRadius:8,border:`1px solid ${lang===code?COLORS.primary:t.border}`,background:lang===code?COLORS.primary:t.hover,color:lang===code?"#fff":t.text,cursor:"pointer",fontWeight:600,fontSize:13 }}>{label}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+          <div style={{ fontWeight:700,fontSize:14,marginBottom:14 }}>🔔 Notifications</div>
+          {Object.entries(notif).map(([key,val])=>{
+            const labels={ lowStock:"Low Stock Alerts",dailySummary:"Daily AI Summary",creditAlert:"Credit Payment Alerts",vatReminder:"VAT Filing Reminders" };
+            const subs={ lowStock:"Alert when stock hits reorder point",dailySummary:"Morning business summary via AI",creditAlert:"Alert for overdue credit accounts",vatReminder:"Monthly VAT deadline reminders" };
+            return (
+              <div key={key} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 0",borderBottom:`1px solid ${t.border}` }}>
+                <div>
+                  <div style={{ fontSize:13,fontWeight:600 }}>{labels[key]}</div>
+                  <div style={{ fontSize:11,color:t.muted,marginTop:2 }}>{subs[key]}</div>
+                </div>
+                <button onClick={()=>setNotif(p=>({...p,[key]:!p[key]}))} style={{ width:44,height:24,borderRadius:12,background:val?COLORS.success:t.border,border:"none",cursor:"pointer",position:"relative",transition:"background 0.3s" }}>
+                  <div style={{ width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:val?23:3,transition:"left 0.3s" }} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+          <div style={{ fontWeight:700,fontSize:14,marginBottom:14 }}>💳 Payment Integrations</div>
+          {[{name:"Telebirr",desc:"Ethio Telecom Mobile Wallet",status:"connected",color:COLORS.success},{name:"CBE Birr",desc:"Commercial Bank of Ethiopia",status:"connected",color:COLORS.success},{name:"Awash Bank",desc:"Awash Bank Mobile Payment",status:"disconnected",color:COLORS.muted},{name:"Dashen Bank",desc:"Dashen Bank Digital Payment",status:"disconnected",color:COLORS.muted}].map((p,i)=>(
+            <div key={i} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${t.border}` }}>
+              <div>
+                <div style={{ fontSize:13,fontWeight:700 }}>{p.name}</div>
+                <div style={{ fontSize:11,color:t.muted }}>{p.desc}</div>
+              </div>
+              <button style={{ background:p.status==="connected"?`${COLORS.success}22`:t.hover,color:p.status==="connected"?COLORS.success:t.muted,border:`1px solid ${p.status==="connected"?COLORS.success:t.border}`,borderRadius:8,padding:"6px 14px",fontSize:11,fontWeight:700,cursor:"pointer" }}>
+                {p.status==="connected"?"✓ Connected":"Connect"}
+              </button>
+            </div>
+          ))}
+        </div>
+        <div style={{ background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16 }}>
+          <div style={{ fontWeight:700,fontSize:14,marginBottom:14 }}>🏢 Business Profile</div>
+          {[["Business Name","Selam Supermarket PLC"],["TIN Number","0012345678"],["VAT Number","ETH-VAT-2024-0189"],["City","Addis Ababa"],["Phone","+251 911 234 567"],["Email","admin@selamsupermarket.et"]].map(([k,v],i)=>(
+            <div key={i} style={{ display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${t.border}`,fontSize:13 }}>
+              <span style={{ color:t.muted }}>{k}</span>
+              <span style={{ fontWeight:600 }}>{v}</span>
+            </div>
+          ))}
+          <button style={{ width:"100%",marginTop:12,background:COLORS.primary,color:"#fff",border:"none",borderRadius:8,padding:10,fontWeight:700,cursor:"pointer",fontSize:13 }}>Edit Business Profile</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main App ─────────────────────────────────────────────────
+export default function App() {
+  const [darkMode,setDarkMode]=useState(true);
+  const [lang,setLang]=useState("en");
+  const [active,setActive]=useState("dashboard");
+  const [collapsed,setCollapsed]=useState(false);
+  const t=darkMode?dark:light;
+  const L=(en,am)=>lang==="am"?am:en;
+  const activeNav=NAV.find(n=>n.id===active);
+
+  const renderPage=()=>{
+    switch(active){
+      case "dashboard": return <Dashboard t={t} setActive={setActive} />;
+      case "pos": return <POSView t={t} />;
+      case "inventory": return <InventoryView t={t} />;
+      case "sales": return <SalesView t={t} />;
+      case "finance": return <FinanceView t={t} />;
+      case "crm": return <CRMView t={t} />;
+      case "employees": return <EmployeesView t={t} />;
+      case "ai": return <AIView t={t} />;
+      case "reports": return <ReportsView t={t} />;
+      case "branches": return <BranchesView t={t} />;
+      case "settings": return <SettingsView t={t} darkMode={darkMode} setDarkMode={setDarkMode} lang={lang} setLang={setLang} />;
+      default: return null;
+    }
+  };
+
+  return (
+    <div style={{ display:"flex",height:"100vh",fontFamily:"'Segoe UI',system-ui,sans-serif",background:t.bg,color:t.text,overflow:"hidden" }}>
+      {/* Sidebar */}
+      <div style={{ width:collapsed?60:210,background:t.sidebar,borderRight:`1px solid #1E293B`,transition:"width 0.3s",display:"flex",flexDirection:"column",flexShrink:0 }}>
+        <div style={{ padding:"16px 12px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #1E293B" }}>
+          <div style={{ width:32,height:32,borderRadius:8,background:`linear-gradient(135deg,${COLORS.primary},${COLORS.gold})`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:14,color:"#fff",flexShrink:0 }}>E</div>
+          {!collapsed&&<div>
+            <div style={{ fontWeight:800,fontSize:13,color:"#fff" }}>EthioPOS</div>
+            <div style={{ fontSize:10,color:"#64748B" }}>Business Suite</div>
+          </div>}
+        </div>
+        <nav style={{ flex:1,overflowY:"auto",padding:"8px 0" }}>
+          {NAV.map(n=>(
+            <button key={n.id} onClick={()=>setActive(n.id)} title={n.label} style={{ width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 16px",background:active===n.id?`${COLORS.primary}22`:undefined,borderLeft:active===n.id?`3px solid ${COLORS.primaryLight}`:"3px solid transparent",border:"none",cursor:"pointer",color:active===n.id?COLORS.primaryLight:"#94A3B8",fontWeight:active===n.id?"700":"400",fontSize:13,textAlign:"left" }}>
+              <span style={{ fontSize:16,flexShrink:0 }}>{n.icon}</span>
+              {!collapsed&&<span>{lang==="am"?n.am:n.label}</span>}
+            </button>
+          ))}
+        </nav>
+        <button onClick={()=>setCollapsed(p=>!p)} style={{ background:"none",border:"none",color:"#64748B",padding:12,cursor:"pointer",fontSize:16 }}>{collapsed?"→":"←"}</button>
+      </div>
+
+      {/* Main */}
+      <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+        {/* Topbar */}
+        <div style={{ background:t.card,borderBottom:`1px solid ${t.border}`,padding:"0 20px",height:56,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
+          <div>
+            <div style={{ fontWeight:700,fontSize:15 }}>{L(activeNav?.label,activeNav?.am)}</div>
+            <div style={{ fontSize:11,color:t.muted }}>Bole Main Branch • {new Date().toLocaleDateString("en-ET",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
+          </div>
+          <div style={{ display:"flex",gap:10,alignItems:"center" }}>
+            <button onClick={()=>setLang(p=>p==="en"?"am":"en")} style={{ background:t.input,border:`1px solid ${t.border}`,color:t.text,borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:600 }}>
+              {lang==="en"?"🇪🇹 አማርኛ":"🇬🇧 English"}
+            </button>
+            <button onClick={()=>setDarkMode(p=>!p)} style={{ background:t.input,border:`1px solid ${t.border}`,color:t.text,borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:14 }}>
+              {darkMode?"☀️":"🌙"}
+            </button>
+            <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+              <div style={{ width:32,height:32,borderRadius:"50%",background:`linear-gradient(135deg,${COLORS.primary},${COLORS.purple})`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,color:"#fff",fontSize:13 }}>A</div>
+              <div>
+                <div style={{ fontSize:12,fontWeight:600 }}>Admin</div>
+                <div style={{ fontSize:10,color:t.muted }}>Owner</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Page content */}
+        <div style={{ flex:1,overflowY:"auto",padding:20 }}>
+          {renderPage()}
+        </div>
+      </div>
+    </div>
+  );
+}

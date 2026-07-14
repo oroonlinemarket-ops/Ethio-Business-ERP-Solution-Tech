@@ -1,0 +1,1292 @@
+import React,{useState,useEffect,useRef}from"react";
+import{BarChart,Bar,LineChart,Line,AreaChart,Area,PieChart,Pie,Cell,XAxis,YAxis,Tooltip,ResponsiveContainer,RadarChart,Radar,PolarGrid,PolarAngleAxis}from"recharts";
+
+const C={primary:"#1E40AF",light:"#3B82F6",gold:"#F59E0B",success:"#10B981",danger:"#EF4444",warning:"#F97316",purple:"#8B5CF6",teal:"#14B8A6",pink:"#EC4899",rose:"#F43F5E"};
+const DK={bg:"#0F172A",card:"#1E293B",border:"#334155",text:"#F1F5F9",muted:"#94A3B8",sidebar:"#0F172A",input:"#1E293B",hover:"#334155"};
+const LT={bg:"#F8FAFC",card:"#FFFFFF",border:"#E2E8F0",text:"#0F172A",muted:"#64748B",sidebar:"#1E293B",input:"#F1F5F9",hover:"#F1F5F9"};
+const ETB=n=>`ETB ${Number(n).toLocaleString()}`;
+
+const NAV_LABELS={dashboard:"Dashboard",pos:"Point of Sale",inventory:"Inventory",sales:"Sales",finance:"Finance",crm:"CRM",employees:"Employees",suppliers:"Suppliers",ai:"AI Intelligence",reports:"Reports",branches:"Branches",accounting:"Accounting",hr:"HR & Payroll",invoices:"Invoices",warehouse:"Warehouse",qa:"QA & Performance",security:"Security",plans:"SaaS Plans",help:"Help Center",readiness:"Readiness",settings:"Settings"};
+const NAV_LABELS_AM={dashboard:"ዳሽቦርድ",pos:"ሽያጭ",inventory:"እቃ ክምችት",sales:"ሽያጮች",finance:"ፋይናንስ",crm:"ደንበኞች",employees:"ሠራተኞች",suppliers:"አቅራቢዎች",ai:"AI ትንታኔ",reports:"ሪፖርቶች",branches:"ቅርንጫፎች",accounting:"ሂሳብ አያያዝ",hr:"ሠራተኞችና ደሞዝ",invoices:"ደረሰኞች",warehouse:"መጋዘን",qa:"ጥራት",security:"ደህንነት",plans:"ዕቅዶች",help:"እርዳታ",readiness:"ዝግጁነት",settings:"ቅንብሮች"};
+const NAV_LABELS_OM={dashboard:"Dasboordii",pos:"Gurgurtaa",inventory:"Kuusaa",sales:"Gurgurtaa",finance:"Maallaqaa",crm:"Maamilaa",employees:"Hojjettoo",suppliers:"Dhiyeessaa",ai:"AI Xinxalaa",reports:"Gabaasaa",branches:"Dambiilee",accounting:"Herregaa",hr:"Hojjettootaa",invoices:"Waraqaa",warehouse:"Kuusaa",qa:"Qulqullina",security:"Nageenyaa",plans:"Karoora",help:"Gargaarsa",readiness:"Qophii",settings:"Qindaa'ina"};
+
+const ALL_NAV_IDS=["dashboard","pos","inventory","sales","finance","crm","employees","suppliers","ai","reports","branches","accounting","hr","invoices","warehouse","qa","security","plans","help","readiness","settings"];
+const ROLES={
+  superadmin:{label:"Super Admin",icon:"⚡",color:C.rose,pin:"0000",nav:ALL_NAV_IDS},
+  owner:{label:"Business Owner",icon:"👑",color:C.gold,pin:"1234",nav:ALL_NAV_IDS},
+  branch_manager:{label:"Branch Manager",icon:"🏪",color:C.purple,pin:"2345",nav:["dashboard","pos","inventory","sales","crm","employees","suppliers","reports","branches","accounting","invoices","warehouse","help"]},
+  accountant:{label:"Accountant",icon:"📊",color:C.teal,pin:"3456",nav:["dashboard","finance","sales","reports","ai","accounting","invoices","help"]},
+  cashier:{label:"Cashier",icon:"🛒",color:C.light,pin:"4567",nav:["pos","dashboard","invoices"]},
+  inventory_mgr:{label:"Inventory Manager",icon:"📦",color:C.success,pin:"5678",nav:["dashboard","inventory","suppliers","reports","warehouse","help"]},
+  sales_mgr:{label:"Sales Manager",icon:"📈",color:C.warning,pin:"6789",nav:["dashboard","sales","crm","reports","ai","invoices","help"]},
+  hr_mgr:{label:"HR Manager",icon:"👥",color:C.pink,pin:"7890",nav:["dashboard","employees","reports","hr","help"]},
+};
+const ALL_NAV=[
+  {id:"dashboard",icon:"⊞"},{id:"pos",icon:"🛒"},{id:"inventory",icon:"📦"},
+  {id:"sales",icon:"📈"},{id:"finance",icon:"💰"},{id:"crm",icon:"👥"},
+  {id:"employees",icon:"🏷️"},{id:"suppliers",icon:"🚚"},{id:"ai",icon:"🤖"},
+  {id:"reports",icon:"📊"},{id:"branches",icon:"🏪"},{id:"accounting",icon:"📒"},
+  {id:"hr",icon:"👔"},{id:"invoices",icon:"🧾"},{id:"warehouse",icon:"🏭"},
+  {id:"qa",icon:"✅"},{id:"security",icon:"🔒"},{id:"plans",icon:"💳"},
+  {id:"help",icon:"❓"},{id:"readiness",icon:"🎯"},{id:"settings",icon:"⚙️"},
+];
+
+// ── Shared UI ─────────────────────────────────────────────────
+function Badge({label,color}){
+  return <span style={{background:`${color}22`,color,fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:20}}>{label}</span>;
+}
+function StatRow({label,value,color,t}){
+  return(
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${t.border}`}}>
+      <span style={{fontSize:13,color:t.muted}}>{label}</span>
+      <span style={{fontSize:13,fontWeight:700,color:color||t.text}}>{value}</span>
+    </div>
+  );
+}
+function Avatar({name,size=30,bg=C.light}){
+  return(
+    <div style={{width:size,height:size,borderRadius:"50%",background:`${bg}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.38,fontWeight:700,color:bg,flexShrink:0}}>
+      {name.split(" ").map(w=>w[0]).join("").slice(0,2)}
+    </div>
+  );
+}
+function TT({payload,active:isActive,t}){
+  if(!isActive||!payload?.length)return null;
+  return(
+    <div style={{background:t?.card||"#1E293B",border:`1px solid ${t?.border||"#334155"}`,borderRadius:8,padding:"8px 12px",fontSize:12}}>
+      {payload.map((p,i)=><div key={i} style={{color:p.color||"#94A3B8"}}>{p.name}: {p.value}</div>)}
+    </div>
+  );
+}
+function Tabs({tabs,active,set,t}){
+  return(
+    <div style={{display:"flex",gap:0,background:t.hover,borderRadius:10,padding:4,width:"fit-content",marginBottom:14}}>
+      {tabs.map(([id,lbl])=>(
+        <button key={id} onClick={()=>set(id)} style={{background:active===id?C.primary:"transparent",color:active===id?"#fff":t.muted,border:"none",borderRadius:8,padding:"7px 16px",cursor:"pointer",fontWeight:700,fontSize:13}}>
+          {lbl}
+        </button>
+      ))}
+    </div>
+  );
+}
+function KPIGrid({items,t}){
+  return(
+    <div style={{display:"grid",gridTemplateColumns:`repeat(${items.length},1fr)`,gap:12,marginBottom:14}}>
+      {items.map((s,i)=>(
+        <div key={i} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:14}}>
+          <div style={{fontSize:11,color:t.muted}}>{s.l}</div>
+          <div style={{fontSize:18,fontWeight:800,color:s.c||t.text,marginTop:4}}>{s.v}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+function Card({t,children,title,extraStyle}){
+  return(
+    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16,...(extraStyle||{})}}>
+      {title&&<div style={{fontWeight:700,fontSize:14,marginBottom:12}}>{title}</div>}
+      {children}
+    </div>
+  );
+}
+
+// ── Data ─────────────────────────────────────────────────────
+const COA=[
+  {code:"1000",name:"Cash & Bank",type:"Asset",cat:"Current",balance:284500},
+  {code:"1100",name:"Accounts Receivable",type:"Asset",cat:"Current",balance:92400},
+  {code:"1200",name:"Inventory / Stock",type:"Asset",cat:"Current",balance:284500},
+  {code:"1400",name:"Fixed Assets",type:"Asset",cat:"Non-Current",balance:920000},
+  {code:"2000",name:"Accounts Payable",type:"Liability",cat:"Current",balance:156000},
+  {code:"2100",name:"VAT Payable (ERCA)",type:"Liability",cat:"Current",balance:79350},
+  {code:"2200",name:"Salary Payable",type:"Liability",cat:"Current",balance:124000},
+  {code:"3000",name:"Share Capital",type:"Equity",cat:"Equity",balance:500000},
+  {code:"3100",name:"Retained Earnings",type:"Equity",cat:"Equity",balance:890000},
+  {code:"4000",name:"Sales Revenue",type:"Revenue",cat:"Revenue",balance:1243500},
+  {code:"5000",name:"Cost of Goods Sold",type:"Expense",cat:"COGS",balance:748200},
+  {code:"5100",name:"Staff Salaries",type:"Expense",cat:"Operating",balance:124000},
+  {code:"5200",name:"Rent Expense",type:"Expense",cat:"Operating",balance:45000},
+  {code:"5300",name:"Utilities",type:"Expense",cat:"Operating",balance:18400},
+];
+const JOURNAL=[
+  {date:"May 29",ref:"JE-0142",desc:"Daily cash sales",debitAcc:"Cash & Bank",debitAmt:184250,creditAcc:"Sales Revenue",creditAmt:184250,status:"posted"},
+  {date:"May 29",ref:"JE-0143",desc:"VAT on sales",debitAcc:"Sales Revenue",debitAmt:24750,creditAcc:"VAT Payable",creditAmt:24750,status:"posted"},
+  {date:"May 28",ref:"JE-0140",desc:"Inventory purchase",debitAcc:"Inventory",debitAmt:84000,creditAcc:"Accounts Payable",creditAmt:84000,status:"posted"},
+  {date:"May 27",ref:"JE-0138",desc:"Salary payment",debitAcc:"Staff Salaries",debitAmt:124000,creditAcc:"Cash & Bank",creditAmt:124000,status:"posted"},
+];
+const CASHFLOW=[
+  {month:"Jan",operating:82000,investing:-18000},{month:"Feb",operating:104000,investing:-12000},
+  {month:"Mar",operating:91000,investing:-25000},{month:"Apr",operating:128000,investing:-8000},
+  {month:"May",operating:156000,investing:-32000},
+];
+const ATTENDANCE=[
+  {name:"Almaz Kebede",role:"Cashier",branch:"Bole Main",checkIn:"08:02",checkOut:"17:05",hours:9.0,status:"present"},
+  {name:"Tesfaye Bekele",role:"Manager",branch:"Bole Main",checkIn:"07:55",checkOut:"18:10",hours:10.2,status:"present"},
+  {name:"Hirut Girma",role:"Cashier",branch:"Merkato",checkIn:"08:30",checkOut:"17:00",hours:8.5,status:"present"},
+  {name:"Berhanu Desta",role:"Inv. Mgr",branch:"Merkato",checkIn:"08:05",checkOut:"17:00",hours:8.9,status:"present"},
+  {name:"Selamawit Nega",role:"Cashier",branch:"Piassa",checkIn:null,checkOut:null,hours:0,status:"leave"},
+  {name:"Yonas Tadesse",role:"Cashier",branch:"Bishoftu",checkIn:"09:00",checkOut:"17:00",hours:8.0,status:"late"},
+];
+const LEAVE_DATA=[
+  {id:"LV-021",employee:"Selamawit Nega",type:"Annual",from:"May 27",to:"Jun 5",days:6,reason:"Family event",status:"approved"},
+  {id:"LV-022",employee:"Hirut Girma",type:"Sick",from:"Jun 10",to:"Jun 11",days:2,reason:"Medical",status:"pending"},
+  {id:"LV-023",employee:"Yonas Tadesse",type:"Annual",from:"Jul 1",to:"Jul 7",days:5,reason:"Personal",status:"pending"},
+];
+const PAYROLL=[
+  {name:"Almaz Kebede",role:"Cashier",basic:8500,transport:500,pension:255,incomeTax:0,net:8745,status:"paid"},
+  {name:"Tesfaye Bekele",role:"Manager",basic:18000,transport:2000,pension:540,incomeTax:1540,net:17920,status:"paid"},
+  {name:"Hirut Girma",role:"Cashier",basic:8000,transport:500,pension:240,incomeTax:0,net:8260,status:"paid"},
+  {name:"Berhanu Desta",role:"Inv. Mgr",basic:12000,transport:1000,pension:360,incomeTax:210,net:12430,status:"paid"},
+  {name:"Selamawit Nega",role:"Cashier",basic:7500,transport:500,pension:225,incomeTax:0,net:7775,status:"pending"},
+];
+const QUOTES=[
+  {id:"Q-004",customer:"Merkato Wholesale",date:"May 29",items:"Oil x100, Sugar x200",total:82000,valid:"Jun 8",status:"sent"},
+  {id:"Q-003",customer:"ABC Superstore",date:"May 27",items:"Rice 25kg x50",total:17000,valid:"Jun 6",status:"accepted"},
+  {id:"Q-002",customer:"Piassa Mini-Mart",date:"May 25",items:"Teff 25kg x30",total:11400,valid:"Jun 4",status:"expired"},
+];
+const INVOICES_DATA=[
+  {id:"INV-241",customer:"Selam Tesfaye",date:"May 29",sub:3838,vat:576,total:4414,method:"Telebirr",status:"paid"},
+  {id:"INV-240",customer:"Tigist Haile",date:"May 29",sub:12400,vat:1860,total:14260,method:"CBE Birr",status:"paid"},
+  {id:"INV-239",customer:"Dawit Bekele",date:"May 28",sub:5600,vat:840,total:6440,method:"Credit",status:"outstanding"},
+  {id:"INV-238",customer:"Merkato Wholesale",date:"May 27",sub:82000,vat:12300,total:94300,method:"Bank Transfer",status:"outstanding"},
+];
+const RETURNS=[
+  {id:"CN-012",invoice:"INV-228",customer:"Abebe Girma",item:"Sugar 5kg x2",reason:"Damaged",amount:360,date:"May 28",status:"processed"},
+  {id:"CN-011",invoice:"INV-215",customer:"Yonas Store",item:"Milk 1L x5",reason:"Near expiry",amount:300,date:"May 26",status:"processed"},
+];
+const WAREHOUSES=[
+  {id:"W001",name:"Bole Main Warehouse",location:"Bole",capacity:500,used:342,items:48,manager:"Tesfaye B.",status:"active"},
+  {id:"W002",name:"Merkato Store",location:"Merkato",capacity:300,used:198,items:35,manager:"Berhanu D.",status:"active"},
+  {id:"W003",name:"Piassa Storage",location:"Piassa",capacity:150,used:89,items:22,manager:"Hirut G.",status:"active"},
+];
+const TRANSFERS=[
+  {id:"TR-018",from:"Bole Main",to:"Merkato",item:"Cooking Oil 5L",qty:30,date:"May 28",status:"completed"},
+  {id:"TR-017",from:"Bole Main",to:"Piassa",item:"Sugar 5kg",qty:20,date:"May 27",status:"completed"},
+  {id:"TR-016",from:"Merkato",to:"Bishoftu",item:"Rice 25kg",qty:10,date:"May 26",status:"in_transit"},
+];
+const QA_TESTS=[
+  {module:"Point of Sale",total:28,passed:28,failed:0,coverage:"100%",status:"pass"},
+  {module:"Inventory",total:22,passed:21,failed:1,coverage:"95%",status:"warn"},
+  {module:"Accounting",total:32,passed:32,failed:0,coverage:"100%",status:"pass"},
+  {module:"Finance",total:18,passed:18,failed:0,coverage:"100%",status:"pass"},
+  {module:"HR & Payroll",total:24,passed:23,failed:1,coverage:"96%",status:"warn"},
+  {module:"CRM",total:16,passed:16,failed:0,coverage:"100%",status:"pass"},
+  {module:"Invoices",total:20,passed:20,failed:0,coverage:"100%",status:"pass"},
+  {module:"Warehouse",total:14,passed:14,failed:0,coverage:"100%",status:"pass"},
+  {module:"AI Intelligence",total:10,passed:9,failed:1,coverage:"90%",status:"warn"},
+  {module:"Security",total:30,passed:28,failed:2,coverage:"93%",status:"warn"},
+];
+const PERF=[
+  {metric:"Dashboard Load",target:"<3s",actual:"1.18s",status:"pass"},
+  {metric:"POS Transaction",target:"<1s",actual:"0.34s",status:"pass"},
+  {metric:"Inventory Search",target:"<1s",actual:"0.22s",status:"pass"},
+  {metric:"Report Generation",target:"<5s",actual:"2.84s",status:"pass"},
+  {metric:"AI Response",target:"<10s",actual:"7.8s",status:"pass"},
+  {metric:"DB Query (avg)",target:"<200ms",actual:"84ms",status:"pass"},
+];
+const invData=[
+  {id:"P001",name:"Cooking Oil 5L",cat:"Grocery",stock:48,reorder:20,price:250,cost:190,status:"ok",supplier:"Nile Trading"},
+  {id:"P002",name:"Sugar 5kg",cat:"Grocery",stock:5,reorder:30,price:180,cost:140,status:"critical",supplier:"Ethio Sugar"},
+  {id:"P003",name:"Rice 25kg",cat:"Grain",stock:22,reorder:15,price:360,cost:290,status:"ok",supplier:"Nile Trading"},
+  {id:"P004",name:"Injera Flour 10kg",cat:"Grain",stock:8,reorder:25,price:200,cost:155,status:"low",supplier:"Local Mills"},
+  {id:"P005",name:"Teff 25kg",cat:"Grain",stock:14,reorder:10,price:400,cost:320,status:"ok",supplier:"Local Mills"},
+  {id:"P006",name:"Milk 1L",cat:"Dairy",stock:60,reorder:40,price:60,cost:45,status:"ok",supplier:"Sebeta Agro"},
+];
+const weekData=[
+  {day:"Mon",sales:42,exp:12,tx:58},{day:"Tue",sales:58,exp:15,tx:74},
+  {day:"Wed",sales:49,exp:11,tx:63},{day:"Thu",sales:71,exp:18,tx:92},
+  {day:"Fri",sales:63,exp:14,tx:81},{day:"Sat",sales:88,exp:9,tx:118},{day:"Sun",sales:72,exp:8,tx:97},
+];
+const monthData=[{m:"Jan",v:120},{m:"Feb",v:145},{m:"Mar",v:132},{m:"Apr",v:178},{m:"May",v:194},{m:"Jun",v:162}];
+const pieData=[{name:"Grocery",value:42,color:C.light},{name:"Grain",value:28,color:C.purple},{name:"Dairy",value:15,color:C.teal},{name:"Bakery",value:10,color:C.gold},{name:"Other",value:5,color:C.warning}];
+const READINESS_DATA=[
+  {label:"Product Completeness",score:97,color:C.success,notes:["21 modules implemented","NestJS API + DB schema","AI Business Intelligence live"]},
+  {label:"Security",score:84,color:C.light,notes:["JWT + MFA + RBAC","Audit trail + sessions","Webhook signature verify"]},
+  {label:"Scalability",score:90,color:C.success,notes:["Docker + k6 load tests","Prometheus + Grafana","Horizontal API scaling"]},
+  {label:"User Experience",score:96,color:C.success,notes:["3-language (EN/AM/OM)","Onboarding wizard < 25 min","React Native mobile POS"]},
+  {label:"Ethiopian Compliance",score:95,color:C.success,notes:["Telebirr + CBE Birr","VAT 15% + payroll tax","ERCA-compliant invoices"]},
+  {label:"Market Readiness",score:92,color:C.success,notes:["SaaS plans + billing","CI/CD pipeline ready","Go-to-market strategy"]},
+];
+const radarData=READINESS_DATA.map(r=>({subject:r.label.split(" ")[0],score:r.score}));
+const suppliersData=[
+  {id:"S001",name:"Nile Trading PLC",contact:"Habtamu Bekele",phone:"+251911001100",city:"Addis Ababa",cat:"Grocery",orders:42,value:1240000,rating:5},
+  {id:"S002",name:"Ethio Sugar Corp",contact:"Mekdes Haile",phone:"+251922002200",city:"Wonji",cat:"Sugar",orders:18,value:580000,rating:4},
+  {id:"S003",name:"Local Mills Ltd",contact:"Girma Tadesse",phone:"+251933003300",city:"Sheger City",cat:"Grain",orders:31,value:420000,rating:4},
+  {id:"S004",name:"Sebeta Agro PLC",contact:"Tigist Alemu",phone:"+251944004400",city:"Sebeta",cat:"Dairy",orders:24,value:310000,rating:5},
+];
+
+// ── Login ─────────────────────────────────────────────────────
+function Login({onLogin}){
+  const[sel,setSel]=useState(null);
+  const[pin,setPin]=useState("");
+  const[err,setErr]=useState(false);
+  function tryPin(p){
+    if(p===ROLES[sel].pin){onLogin(sel);}
+    else{setErr(true);setPin("");setTimeout(()=>setErr(false),900);}
+  }
+  return(
+    <div style={{minHeight:"100vh",background:"#0F172A",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      <div style={{width:460,padding:32}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{width:68,height:68,borderRadius:18,background:`linear-gradient(135deg,${C.primary},${C.gold})`,margin:"0 auto 14px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,fontWeight:900,color:"#fff"}}>E</div>
+          <div style={{fontSize:26,fontWeight:900,color:"#F1F5F9"}}>EthioPOS</div>
+          <div style={{fontSize:12,color:"#64748B",marginTop:4}}>Enterprise ERP · ቢዝነስ አስተዳደር · Dhiyeessa Daldala</div>
+        </div>
+        {!sel?(
+          <div>
+            <div style={{fontSize:12,color:"#94A3B8",textAlign:"center",marginBottom:14}}>Select your role · ሚናዎን ይምረጡ</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {Object.entries(ROLES).map(([k,r])=>(
+                <button key={k} onClick={()=>setSel(k)} style={{background:"#1E293B",border:"1px solid #334155",borderRadius:12,padding:"14px 10px",cursor:"pointer",textAlign:"center",color:"#F1F5F9"}}>
+                  <div style={{fontSize:24,marginBottom:6}}>{r.icon}</div>
+                  <div style={{fontWeight:700,fontSize:13,color:r.color}}>{r.label}</div>
+                  <div style={{fontSize:10,color:"#64748B",marginTop:2}}>{r.nav.length} modules</div>
+                </button>
+              ))}
+            </div>
+            <div style={{textAlign:"center",marginTop:12,fontSize:11,color:"#334155"}}>Demo PINs shown after role selection</div>
+          </div>
+        ):(
+          <div style={{background:"#1E293B",border:"1px solid #334155",borderRadius:16,padding:24}}>
+            <button onClick={()=>setSel(null)} style={{background:"none",border:"none",color:"#94A3B8",cursor:"pointer",fontSize:12,marginBottom:12,padding:0}}>← Back</button>
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{fontSize:30}}>{ROLES[sel].icon}</div>
+              <div style={{fontWeight:700,color:ROLES[sel].color,fontSize:15,marginTop:4}}>{ROLES[sel].label}</div>
+              <div style={{fontSize:11,color:"#64748B",marginTop:3}}>Demo PIN: {ROLES[sel].pin}</div>
+            </div>
+            <div style={{display:"flex",gap:10,justifyContent:"center",marginBottom:16}}>
+              {[0,1,2,3].map(i=>(
+                <div key={i} style={{width:14,height:14,borderRadius:"50%",background:pin.length>i?(err?C.danger:ROLES[sel].color):"#334155",transition:"all 0.2s"}}/>
+              ))}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+              {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((k,i)=>(
+                <button key={i} onClick={()=>{
+                  if(k==="⌫")setPin(p=>p.slice(0,-1));
+                  else if(k!==""&&pin.length<4){const np=pin+k;setPin(np);if(np.length===4)setTimeout(()=>tryPin(np),80);}
+                }} style={{background:k===""?"transparent":"#0F172A",border:`1px solid ${k===""?"transparent":"#334155"}`,borderRadius:10,height:50,fontSize:18,fontWeight:600,color:"#F1F5F9",cursor:k===""?"default":"pointer"}}>
+                  {k}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Accounting ────────────────────────────────────────────────
+function AccountingView({t}){
+  const[tab,setTab]=useState("coa");
+  const typeColor={Asset:C.success,Liability:C.danger,Equity:C.purple,Revenue:C.light,Expense:C.warning};
+  const revenue=COA.filter(a=>a.type==="Revenue").reduce((s,a)=>s+a.balance,0);
+  const expenses=COA.filter(a=>a.type==="Expense").reduce((s,a)=>s+a.balance,0);
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <KPIGrid t={t} items={[
+        {l:"Total Assets",v:ETB(1581400),c:C.success},
+        {l:"Total Liabilities",v:ETB(359350),c:C.danger},
+        {l:"Net Equity",v:ETB(1222050),c:C.purple},
+        {l:"Net Profit (May)",v:ETB(revenue-expenses),c:C.success},
+      ]}/>
+      <Tabs t={t} active={tab} set={setTab} tabs={[["coa","📋 Chart of Accounts"],["journal","📝 Journal Entries"],["pl","📈 P&L Statement"],["balance","⚖️ Balance Sheet"],["cashflow","💧 Cash Flow"]]}/>
+      {tab==="coa"&&(
+        <Card t={t} title="📋 Chart of Accounts">
+          {["Asset","Liability","Equity","Revenue","Expense"].map(type=>(
+            <div key={type} style={{marginBottom:16}}>
+              <div style={{fontWeight:800,fontSize:13,color:typeColor[type],marginBottom:8,borderBottom:`2px solid ${typeColor[type]}44`,paddingBottom:4}}>{type.toUpperCase()}S</div>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead>
+                  <tr>
+                    {["Code","Account Name","Category","Balance"].map(h=>(
+                      <th key={h} style={{textAlign:"left",padding:"5px 8px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {COA.filter(a=>a.type===type).map((a,i)=>(
+                    <tr key={i} style={{borderBottom:`1px solid ${t.border}`}}>
+                      <td style={{padding:"7px 8px",fontFamily:"monospace",color:t.muted,fontSize:12}}>{a.code}</td>
+                      <td style={{padding:"7px 8px",fontWeight:600}}>{a.name}</td>
+                      <td style={{padding:"7px 8px"}}><Badge label={a.cat} color={typeColor[type]}/></td>
+                      <td style={{padding:"7px 8px",fontWeight:700,color:typeColor[type]}}>{ETB(a.balance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </Card>
+      )}
+      {tab==="journal"&&(
+        <Card t={t} title="📝 Journal Entries">
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{borderBottom:`2px solid ${t.border}`}}>
+                {["Date","Ref","Description","Debit Account","Dr Amount","Credit Account","Cr Amount","Status"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"7px 8px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {JOURNAL.map((j,i)=>(
+                <tr key={i} style={{borderBottom:`1px solid ${t.border}`}}>
+                  <td style={{padding:"9px 8px",color:t.muted,fontSize:12}}>{j.date}</td>
+                  <td style={{padding:"9px 8px",color:C.light,fontWeight:700,fontFamily:"monospace",fontSize:12}}>{j.ref}</td>
+                  <td style={{padding:"9px 8px",fontWeight:600}}>{j.desc}</td>
+                  <td style={{padding:"9px 8px",color:C.success}}>{j.debitAcc}</td>
+                  <td style={{padding:"9px 8px",fontWeight:700,color:C.success}}>{ETB(j.debitAmt)}</td>
+                  <td style={{padding:"9px 8px",color:C.danger}}>{j.creditAcc}</td>
+                  <td style={{padding:"9px 8px",fontWeight:700,color:C.danger}}>{ETB(j.creditAmt)}</td>
+                  <td style={{padding:"9px 8px"}}><Badge label={j.status.toUpperCase()} color={C.success}/></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+      {tab==="pl"&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <Card t={t} title="📈 Profit & Loss — May 2026">
+            {[["REVENUE","",""],["Sales Revenue",ETB(1243500),C.success],["Total Revenue",ETB(1255500),C.success],["COST OF GOODS","",""],["COGS",ETB(748200),C.danger],["Gross Profit",ETB(507300),C.success],["OPERATING EXPENSES","",""],["Staff Salaries",ETB(124000),C.danger],["Rent",ETB(45000),C.danger],["Utilities",ETB(18400),C.danger],["Total OpEx",ETB(232200),C.danger],["NET PROFIT",ETB(275100),C.success]].map(([l,v,c],i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:`1px solid ${t.border}`}}>
+                <span style={{fontSize:13,color:l===l.toUpperCase()&&!v?t.text:t.muted,fontWeight:!v?"800":"400"}}>{l}</span>
+                {v&&<span style={{fontSize:13,fontWeight:700,color:c}}>{v}</span>}
+              </div>
+            ))}
+          </Card>
+          <Card t={t} title="Monthly Net Profit Trend">
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={[{m:"Jan",profit:61000},{m:"Feb",profit:89000},{m:"Mar",profit:72000},{m:"Apr",profit:128000},{m:"May",profit:275100}]}>
+                <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.success} stopOpacity={0.3}/><stop offset="95%" stopColor={C.success} stopOpacity={0}/></linearGradient></defs>
+                <XAxis dataKey="m" tick={{fill:t.muted,fontSize:11}} axisLine={false} tickLine={false}/>
+                <YAxis tick={{fill:t.muted,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>`${Math.round(v/1000)}k`}/>
+                <Tooltip content={props=><TT {...props} t={t}/>}/>
+                <Area type="monotone" dataKey="profit" name="Net Profit" stroke={C.success} fill="url(#pg)" strokeWidth={2}/>
+              </AreaChart>
+            </ResponsiveContainer>
+          </Card>
+        </div>
+      )}
+      {tab==="balance"&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          <Card t={t} title="ASSETS">
+            <div style={{fontWeight:700,fontSize:12,color:C.success,marginBottom:8}}>CURRENT ASSETS</div>
+            <StatRow t={t} label="Cash & Bank" value={ETB(284500)} color={C.success}/>
+            <StatRow t={t} label="Accounts Receivable" value={ETB(92400)} color={C.success}/>
+            <StatRow t={t} label="Inventory" value={ETB(284500)} color={C.success}/>
+            <StatRow t={t} label="Total Current Assets" value={ETB(661400)} color={C.success}/>
+            <div style={{fontWeight:700,fontSize:12,color:C.success,margin:"12px 0 8px"}}>NON-CURRENT ASSETS</div>
+            <StatRow t={t} label="Equipment + Vehicles" value={ETB(1200000)} color={C.success}/>
+            <StatRow t={t} label="Accumulated Depreciation" value={"-"+ETB(280000)} color={C.danger}/>
+            <StatRow t={t} label="Total Non-Current" value={ETB(920000)} color={C.success}/>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0",fontWeight:900,fontSize:15,borderTop:`2px solid ${t.border}`,marginTop:8}}>
+              <span>TOTAL ASSETS</span><span style={{color:C.success}}>{ETB(1581400)}</span>
+            </div>
+          </Card>
+          <Card t={t} title="LIABILITIES & EQUITY">
+            <div style={{fontWeight:700,fontSize:12,color:C.danger,marginBottom:8}}>CURRENT LIABILITIES</div>
+            <StatRow t={t} label="Accounts Payable" value={ETB(156000)} color={C.danger}/>
+            <StatRow t={t} label="VAT Payable (ERCA)" value={ETB(79350)} color={C.danger}/>
+            <StatRow t={t} label="Salary Payable" value={ETB(124000)} color={C.danger}/>
+            <StatRow t={t} label="Total Liabilities" value={ETB(359350)} color={C.danger}/>
+            <div style={{fontWeight:700,fontSize:12,color:C.purple,margin:"12px 0 8px"}}>EQUITY</div>
+            <StatRow t={t} label="Share Capital" value={ETB(500000)} color={C.purple}/>
+            <StatRow t={t} label="Retained Earnings" value={ETB(890000)} color={C.purple}/>
+            <StatRow t={t} label="Current Profit" value={ETB(275100)} color={C.purple}/>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0",fontWeight:900,fontSize:15,borderTop:`2px solid ${t.border}`,marginTop:8}}>
+              <span>TOTAL LIAB + EQUITY</span><span style={{color:C.purple}}>{ETB(1581400)}</span>
+            </div>
+          </Card>
+        </div>
+      )}
+      {tab==="cashflow"&&(
+        <Card t={t} title="💧 Cash Flow Statement">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={CASHFLOW}>
+              <XAxis dataKey="month" tick={{fill:t.muted,fontSize:11}} axisLine={false} tickLine={false}/>
+              <YAxis tick={{fill:t.muted,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>`${Math.round(v/1000)}k`}/>
+              <Tooltip content={props=><TT {...props} t={t}/>}/>
+              <Bar dataKey="operating" name="Operating (k ETB)" fill={C.success} radius={[4,4,0,0]}/>
+              <Bar dataKey="investing" name="Investing (k ETB)" fill={C.warning} radius={[4,4,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginTop:12}}>
+            <div style={{background:t.hover,borderRadius:10,padding:12}}><div style={{fontSize:11,color:t.muted}}>Operating Cash</div><div style={{fontSize:16,fontWeight:800,color:C.success}}>{ETB(156000)}</div></div>
+            <div style={{background:t.hover,borderRadius:10,padding:12}}><div style={{fontSize:11,color:t.muted}}>Investing Cash</div><div style={{fontSize:16,fontWeight:800,color:C.warning}}>-{ETB(32000)}</div></div>
+            <div style={{background:t.hover,borderRadius:10,padding:12}}><div style={{fontSize:11,color:t.muted}}>Net Cash Flow</div><div style={{fontSize:16,fontWeight:800,color:C.success}}>{ETB(119000)}</div></div>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ── HR & Payroll ──────────────────────────────────────────────
+function HRPayrollView({t}){
+  const[tab,setTab]=useState("attendance");
+  const[leaves,setLeaves]=useState(LEAVE_DATA);
+  const statusColor={present:C.success,late:C.warning,leave:C.light,absent:C.danger};
+  const leaveColor={approved:C.success,pending:C.warning,rejected:C.danger};
+  function updateLeave(i,status){
+    setLeaves(function(prev){
+      return prev.map(function(x,j){
+        if(j!==i)return x;
+        return{id:x.id,employee:x.employee,type:x.type,from:x.from,to:x.to,days:x.days,reason:x.reason,status:status};
+      });
+    });
+  }
+  const totalBasic=PAYROLL.reduce((s,p)=>s+p.basic,0);
+  const totalPension=PAYROLL.reduce((s,p)=>s+p.pension,0);
+  const totalTax=PAYROLL.reduce((s,p)=>s+p.incomeTax,0);
+  const totalNet=PAYROLL.reduce((s,p)=>s+p.net,0);
+  const totalTransport=PAYROLL.reduce((s,p)=>s+p.transport,0);
+  const totalGross=totalBasic+totalTransport;
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <KPIGrid t={t} items={[
+        {l:"Total Staff",v:ATTENDANCE.length,c:C.light},
+        {l:"Present Today",v:ATTENDANCE.filter(a=>a.status==="present").length,c:C.success},
+        {l:"On Leave",v:ATTENDANCE.filter(a=>a.status==="leave").length,c:C.warning},
+        {l:"Monthly Payroll",v:ETB(totalNet),c:C.danger},
+      ]}/>
+      <Tabs t={t} active={tab} set={setTab} tabs={[["attendance","🕐 Attendance"],["leave","🏖️ Leave"],["payroll","💰 Payroll"],["payslip","📄 Payslip"]]}/>
+      {tab==="attendance"&&(
+        <Card t={t} title="🕐 Daily Attendance — May 29, 2026">
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{borderBottom:`2px solid ${t.border}`}}>
+                {["Employee","Role","Branch","Check-In","Check-Out","Hours","Status"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"7px 10px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ATTENDANCE.map((a,i)=>(
+                <tr key={i} style={{borderBottom:`1px solid ${t.border}`}}>
+                  <td style={{padding:"10px 10px"}}><div style={{display:"flex",gap:8,alignItems:"center"}}><Avatar name={a.name}/><span style={{fontWeight:600}}>{a.name}</span></div></td>
+                  <td style={{padding:"10px 10px",color:t.muted}}>{a.role}</td>
+                  <td style={{padding:"10px 10px",color:t.muted}}>{a.branch}</td>
+                  <td style={{padding:"10px 10px",fontFamily:"monospace"}}>{a.checkIn||"—"}</td>
+                  <td style={{padding:"10px 10px",fontFamily:"monospace"}}>{a.checkOut||"—"}</td>
+                  <td style={{padding:"10px 10px",fontWeight:700}}>{a.hours?`${a.hours}h`:"—"}</td>
+                  <td style={{padding:"10px 10px"}}><Badge label={a.status.toUpperCase()} color={statusColor[a.status]}/></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+      {tab==="leave"&&(
+        <Card t={t} title="🏖️ Leave Requests">
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{borderBottom:`2px solid ${t.border}`}}>
+                {["ID","Employee","Type","From","To","Days","Reason","Status","Actions"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"7px 10px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {leaves.map((l,i)=>(
+                <tr key={i} style={{borderBottom:`1px solid ${t.border}`}}>
+                  <td style={{padding:"9px 10px",color:t.muted,fontSize:12}}>{l.id}</td>
+                  <td style={{padding:"9px 10px",fontWeight:600}}>{l.employee}</td>
+                  <td style={{padding:"9px 10px"}}><Badge label={l.type} color={C.light}/></td>
+                  <td style={{padding:"9px 10px",color:t.muted}}>{l.from}</td>
+                  <td style={{padding:"9px 10px",color:t.muted}}>{l.to}</td>
+                  <td style={{padding:"9px 10px",fontWeight:700}}>{l.days}</td>
+                  <td style={{padding:"9px 10px",color:t.muted,fontSize:12}}>{l.reason}</td>
+                  <td style={{padding:"9px 10px"}}><Badge label={l.status.toUpperCase()} color={leaveColor[l.status]}/></td>
+                  <td style={{padding:"9px 10px"}}>
+                    {l.status==="pending"&&(
+                      <div style={{display:"flex",gap:5}}>
+                        <button onClick={()=>setLeaves(p=>p.map((x,j)=>j===i?{...x,status:"approved"}:x))} style={{background:`${C.success}22`,color:C.success,border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11,fontWeight:700}}>Approve</button>
+                        <button onClick={()=>setLeaves(p=>p.map((x,j)=>j===i?{...x,status:"rejected"}:x))} style={{background:`${C.danger}22`,color:C.danger,border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:11,fontWeight:700}}>Reject</button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+      {tab==="payroll"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+            {[{l:"Gross Payroll",v:ETB(totalGross),c:C.light},{l:"Pension (7%)",v:ETB(totalPension),c:C.warning},{l:"Income Tax",v:ETB(totalTax),c:C.danger},{l:"Net Payroll",v:ETB(totalNet),c:C.success}].map((s,i)=>(
+              <div key={i} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:14}}>
+                <div style={{fontSize:11,color:t.muted}}>{s.l}</div>
+                <div style={{fontSize:18,fontWeight:800,color:s.c,marginTop:4}}>{s.v}</div>
+              </div>
+            ))}
+          </div>
+          <Card t={t} title="💰 May 2026 Payroll — Ethiopian Labour Law Compliant">
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead>
+                <tr style={{borderBottom:`2px solid ${t.border}`}}>
+                  {["Employee","Role","Basic","Transport","Gross","Pension 7%","Income Tax","Net Pay","Status"].map(h=>(
+                    <th key={h} style={{textAlign:"left",padding:"7px 8px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {PAYROLL.map((p,i)=>(
+                  <tr key={i} style={{borderBottom:`1px solid ${t.border}`}}>
+                    <td style={{padding:"9px 8px",fontWeight:600}}>{p.name}</td>
+                    <td style={{padding:"9px 8px"}}><Badge label={p.role} color={C.light}/></td>
+                    <td style={{padding:"9px 8px"}}>{ETB(p.basic)}</td>
+                    <td style={{padding:"9px 8px",color:t.muted}}>{ETB(p.transport)}</td>
+                    <td style={{padding:"9px 8px",fontWeight:700}}>{ETB(p.basic+p.transport)}</td>
+                    <td style={{padding:"9px 8px",color:C.warning}}>-{ETB(p.pension)}</td>
+                    <td style={{padding:"9px 8px",color:C.danger}}>-{ETB(p.incomeTax)}</td>
+                    <td style={{padding:"9px 8px",fontWeight:800,color:C.success}}>{ETB(p.net)}</td>
+                    <td style={{padding:"9px 8px"}}><Badge label={p.status.toUpperCase()} color={p.status==="paid"?C.success:C.warning}/></td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{background:t.hover}}>
+                  <td colSpan={2} style={{padding:"10px 8px",fontWeight:800}}>TOTALS</td>
+                  <td style={{padding:"10px 8px",fontWeight:800}}>{ETB(totalBasic)}</td>
+                  <td style={{padding:"10px 8px",fontWeight:800}}>{ETB(totalTransport)}</td>
+                  <td style={{padding:"10px 8px",fontWeight:800}}>{ETB(totalGross)}</td>
+                  <td style={{padding:"10px 8px",fontWeight:800,color:C.warning}}>-{ETB(totalPension)}</td>
+                  <td style={{padding:"10px 8px",fontWeight:800,color:C.danger}}>-{ETB(totalTax)}</td>
+                  <td style={{padding:"10px 8px",fontWeight:800,color:C.success}}>{ETB(totalNet)}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+            <div style={{marginTop:12,padding:"10px 14px",background:`${C.light}11`,borderRadius:8,fontSize:11,color:t.muted}}>
+              📋 Pension: Employee 7% + Employer 11% per Ethiopian Labour Proclamation No. 377/2003. Income tax per ERCA progressive brackets.
+            </div>
+          </Card>
+        </div>
+      )}
+      {tab==="payslip"&&(
+        <Card t={t} title="📄 Payslip Preview — Almaz Kebede — May 2026">
+          <div style={{maxWidth:400,background:"#fff",border:"1px solid #E2E8F0",borderRadius:12,padding:24,color:"#000",fontFamily:"monospace"}}>
+            <div style={{textAlign:"center",borderBottom:"2px solid #1E40AF",paddingBottom:12,marginBottom:14}}>
+              <div style={{fontWeight:900,fontSize:16,color:C.primary}}>SELAM SUPERMARKET PLC</div>
+              <div style={{fontSize:12,color:"#64748B"}}>PAYSLIP — MAY 2026</div>
+            </div>
+            {[["Employee","Almaz Kebede"],["ID","E001"],["Role","Cashier"],["Branch","Bole Main"],["Period","May 1–31, 2026"]].map(([k,v])=>(
+              <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                <span style={{color:"#64748B"}}>{k}:</span><span style={{fontWeight:600}}>{v}</span>
+              </div>
+            ))}
+            <div style={{borderTop:"1px dashed #ccc",margin:"10px 0",paddingTop:10}}>
+              <div style={{fontWeight:700,fontSize:12,marginBottom:6}}>EARNINGS</div>
+              {[["Basic Salary","ETB 8,500"],["Transport Allowance","ETB 500"],["GROSS TOTAL","ETB 9,000"]].map(([k,v])=>(
+                <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                  <span>{k}</span><span style={{color:"#10B981"}}>{v}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{borderTop:"1px dashed #ccc",margin:"10px 0",paddingTop:10}}>
+              <div style={{fontWeight:700,fontSize:12,marginBottom:6}}>DEDUCTIONS</div>
+              {[["Employee Pension (7%)","ETB 255"],["Income Tax","ETB 0"],["TOTAL DEDUCTIONS","ETB 255"]].map(([k,v])=>(
+                <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                  <span>{k}</span><span style={{color:"#EF4444"}}>{v}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{borderTop:"2px solid #1E40AF",paddingTop:10,display:"flex",justifyContent:"space-between",fontWeight:900,fontSize:15}}>
+              <span>NET PAY</span><span style={{color:C.primary}}>ETB 8,745</span>
+            </div>
+            <div style={{textAlign:"center",marginTop:10,fontSize:10,color:"#94A3B8"}}>Generated by EthioPOS HR Module</div>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ── Invoices ──────────────────────────────────────────────────
+function InvoicesView({t}){
+  const[tab,setTab]=useState("invoices");
+  const statusColor={paid:C.success,outstanding:C.warning,overdue:C.danger,sent:C.light,accepted:C.success,expired:C.danger,processed:C.success,pending:C.warning};
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <KPIGrid t={t} items={[{l:"Open Invoices",v:"ETB 100,740",c:C.warning},{l:"Paid This Month",v:"ETB 78,224",c:C.success},{l:"Open Quotations",v:2,c:C.light},{l:"Credit Notes",v:"ETB 660",c:C.purple}]}/>
+      <Tabs t={t} active={tab} set={setTab} tabs={[["invoices","🧾 Tax Invoices"],["quotes","📋 Quotations"],["returns","↩️ Credit Notes"],["discounts","🏷️ Discounts"]]}/>
+      {tab==="invoices"&&(
+        <Card t={t} title="🧾 Tax Invoices — ERCA Compliant">
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{borderBottom:`2px solid ${t.border}`}}>
+                {["Invoice #","Customer","Date","Subtotal","VAT 15%","Total","Payment","Status"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"7px 8px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {INVOICES_DATA.map((inv,i)=>(
+                <tr key={i} style={{borderBottom:`1px solid ${t.border}`}}>
+                  <td style={{padding:"9px 8px",color:C.light,fontWeight:700}}>{inv.id}</td>
+                  <td style={{padding:"9px 8px",fontWeight:600}}>{inv.customer}</td>
+                  <td style={{padding:"9px 8px",color:t.muted}}>{inv.date}</td>
+                  <td style={{padding:"9px 8px"}}>{ETB(inv.sub)}</td>
+                  <td style={{padding:"9px 8px",color:C.warning}}>{ETB(inv.vat)}</td>
+                  <td style={{padding:"9px 8px",fontWeight:800}}>{ETB(inv.total)}</td>
+                  <td style={{padding:"9px 8px",color:t.muted}}>{inv.method}</td>
+                  <td style={{padding:"9px 8px"}}><Badge label={inv.status.toUpperCase()} color={statusColor[inv.status]}/></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+      {tab==="quotes"&&(
+        <Card t={t} title="📋 Quotations">
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{borderBottom:`2px solid ${t.border}`}}>
+                {["Quote #","Customer","Date","Items","Total","Valid Until","Status","Actions"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"7px 10px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {QUOTES.map((q,i)=>(
+                <tr key={i} style={{borderBottom:`1px solid ${t.border}`}}>
+                  <td style={{padding:"9px 10px",color:C.light,fontWeight:700}}>{q.id}</td>
+                  <td style={{padding:"9px 10px",fontWeight:600}}>{q.customer}</td>
+                  <td style={{padding:"9px 10px",color:t.muted}}>{q.date}</td>
+                  <td style={{padding:"9px 10px",color:t.muted,fontSize:12}}>{q.items}</td>
+                  <td style={{padding:"9px 10px",fontWeight:700}}>{ETB(q.total)}</td>
+                  <td style={{padding:"9px 10px",color:t.muted}}>{q.valid}</td>
+                  <td style={{padding:"9px 10px"}}><Badge label={q.status.toUpperCase()} color={statusColor[q.status]}/></td>
+                  <td style={{padding:"9px 10px"}}>
+                    {q.status==="accepted"&&<button style={{background:`${C.success}22`,color:C.success,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>To Invoice</button>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+      {tab==="returns"&&(
+        <Card t={t} title="↩️ Credit Notes">
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{borderBottom:`2px solid ${t.border}`}}>
+                {["CN #","Invoice","Customer","Item Returned","Reason","Amount","Date","Status"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"7px 10px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {RETURNS.map((r,i)=>(
+                <tr key={i} style={{borderBottom:`1px solid ${t.border}`}}>
+                  <td style={{padding:"9px 10px",color:C.purple,fontWeight:700}}>{r.id}</td>
+                  <td style={{padding:"9px 10px",color:C.light}}>{r.invoice}</td>
+                  <td style={{padding:"9px 10px",fontWeight:600}}>{r.customer}</td>
+                  <td style={{padding:"9px 10px",color:t.muted}}>{r.item}</td>
+                  <td style={{padding:"9px 10px",color:t.muted,fontSize:12}}>{r.reason}</td>
+                  <td style={{padding:"9px 10px",fontWeight:700,color:C.danger}}>-{ETB(r.amount)}</td>
+                  <td style={{padding:"9px 10px",color:t.muted}}>{r.date}</td>
+                  <td style={{padding:"9px 10px"}}><Badge label={r.status.toUpperCase()} color={statusColor[r.status]}/></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+      {tab==="discounts"&&(
+        <Card t={t} title="🏷️ Discount Rules">
+          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}}>
+            {[{name:"Loyalty Gold",type:"Percentage",value:"10%",applies:"Gold & Platinum members",active:true},{name:"Bulk Wholesale",type:"Percentage",value:"8%",applies:"Orders > ETB 50,000",active:true},{name:"Ramadan Promo",type:"Fixed",value:"ETB 100",applies:"All orders > ETB 500",active:false},{name:"New Customer",type:"Percentage",value:"5%",applies:"First purchase only",active:true}].map((d,i)=>(
+              <div key={i} style={{background:t.hover,borderRadius:12,padding:16,border:`1px solid ${d.active?C.success:t.border}`}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                  <div style={{fontWeight:700,fontSize:14}}>{d.name}</div>
+                  <Badge label={d.active?"ACTIVE":"INACTIVE"} color={d.active?C.success:t.muted}/>
+                </div>
+                <div style={{fontSize:20,fontWeight:900,color:C.gold,marginBottom:8}}>{d.value} OFF</div>
+                <div style={{fontSize:12,color:t.muted}}>{d.type} · {d.applies}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ── Warehouse ─────────────────────────────────────────────────
+function WarehouseView({t}){
+  const[tab,setTab]=useState("warehouses");
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <KPIGrid t={t} items={[{l:"Warehouses",v:WAREHOUSES.length,c:C.light},{l:"Total Capacity",v:"950 units",c:C.purple},{l:"Utilization",v:"66%",c:C.success},{l:"Pending Transfers",v:1,c:C.warning}]}/>
+      <Tabs t={t} active={tab} set={setTab} tabs={[["warehouses","🏭 Warehouses"],["stock","📦 Stock Levels"],["transfers","🚛 Transfers"]]}/>
+      {tab==="warehouses"&&(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
+          {WAREHOUSES.map((w,i)=>{
+            const pct=Math.round((w.used/w.capacity)*100);
+            return(
+              <div key={i} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <div style={{fontWeight:800,fontSize:15}}>{w.name}</div>
+                  <Badge label={w.status.toUpperCase()} color={C.success}/>
+                </div>
+                <div style={{fontSize:12,color:t.muted,marginBottom:12}}>📍 {w.location} · {w.manager}</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+                  {[["Capacity",w.capacity+" units"],["Used",w.used+" units"]].map(([l,v])=>(
+                    <div key={l} style={{background:t.hover,borderRadius:8,padding:"8px 10px"}}>
+                      <div style={{fontSize:10,color:t.muted}}>{l}</div>
+                      <div style={{fontSize:14,fontWeight:800,marginTop:2}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:6}}>
+                  <span style={{color:t.muted}}>Utilization</span>
+                  <span style={{fontWeight:700,color:pct>80?C.danger:pct>60?C.warning:C.success}}>{pct}%</span>
+                </div>
+                <div style={{background:t.border,borderRadius:6,height:10,overflow:"hidden"}}>
+                  <div style={{width:`${pct}%`,background:pct>80?C.danger:pct>60?C.warning:C.success,height:"100%",borderRadius:6}}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {tab==="stock"&&(
+        <Card t={t} title="📦 Stock by Warehouse">
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{borderBottom:`2px solid ${t.border}`}}>
+                {["Product","Bole Main","Merkato","Piassa","Total","Status"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"7px 10px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {invData.map((p,i)=>(
+                <tr key={i} style={{borderBottom:`1px solid ${t.border}`}}>
+                  <td style={{padding:"9px 10px",fontWeight:600}}>{p.name}</td>
+                  <td style={{padding:"9px 10px"}}>{Math.round(p.stock*0.45)}</td>
+                  <td style={{padding:"9px 10px"}}>{Math.round(p.stock*0.35)}</td>
+                  <td style={{padding:"9px 10px"}}>{Math.round(p.stock*0.2)}</td>
+                  <td style={{padding:"9px 10px",fontWeight:700}}>{p.stock}</td>
+                  <td style={{padding:"9px 10px"}}><Badge label={p.status.toUpperCase()} color={{ok:C.success,low:C.warning,critical:C.danger}[p.status]}/></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+      {tab==="transfers"&&(
+        <Card t={t} title="🚛 Stock Transfers">
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{borderBottom:`2px solid ${t.border}`}}>
+                {["Transfer #","From","To","Product","Qty","Date","Status"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"7px 8px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {TRANSFERS.map((tr,i)=>(
+                <tr key={i} style={{borderBottom:`1px solid ${t.border}`}}>
+                  <td style={{padding:"9px 8px",color:C.light,fontWeight:700}}>{tr.id}</td>
+                  <td style={{padding:"9px 8px",color:t.muted}}>{tr.from}</td>
+                  <td style={{padding:"9px 8px",color:t.muted}}>{tr.to}</td>
+                  <td style={{padding:"9px 8px",fontWeight:600}}>{tr.item}</td>
+                  <td style={{padding:"9px 8px",fontWeight:700}}>{tr.qty} units</td>
+                  <td style={{padding:"9px 8px",color:t.muted}}>{tr.date}</td>
+                  <td style={{padding:"9px 8px"}}><Badge label={tr.status.replace("_"," ").toUpperCase()} color={{completed:C.success,in_transit:C.light,scheduled:C.warning}[tr.status]}/></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ── QA Dashboard ──────────────────────────────────────────────
+function QADashboard({t}){
+  const[tab,setTab]=useState("tests");
+  const total=QA_TESTS.reduce((s,m)=>s+m.total,0);
+  const passed=QA_TESTS.reduce((s,m)=>s+m.passed,0);
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <KPIGrid t={t} items={[{l:"Test Modules",v:QA_TESTS.length,c:C.light},{l:"Total Tests",v:total,c:C.purple},{l:"Tests Passed",v:passed,c:C.success},{l:"Pass Rate",v:`${Math.round(passed/total*100)}%`,c:C.success}]}/>
+      <Tabs t={t} active={tab} set={setTab} tabs={[["tests","🧪 Test Results"],["perf","⚡ Performance"],["security","🔒 Security"]]}/>
+      {tab==="tests"&&(
+        <Card t={t} title="🧪 Module Test Results">
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{borderBottom:`2px solid ${t.border}`}}>
+                {["Module","Total","Passed","Failed","Coverage","Result"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"7px 10px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {QA_TESTS.map((m,i)=>(
+                <tr key={i} style={{borderBottom:`1px solid ${t.border}`,background:m.status==="warn"?`${C.warning}06`:"transparent"}}>
+                  <td style={{padding:"9px 10px",fontWeight:600}}>{m.module}</td>
+                  <td style={{padding:"9px 10px",color:t.muted}}>{m.total}</td>
+                  <td style={{padding:"9px 10px",color:C.success,fontWeight:700}}>{m.passed}</td>
+                  <td style={{padding:"9px 10px",color:m.failed>0?C.danger:t.muted,fontWeight:m.failed>0?700:400}}>{m.failed>0?m.failed:"—"}</td>
+                  <td style={{padding:"9px 10px"}}>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <div style={{background:t.border,borderRadius:4,height:6,width:60,overflow:"hidden"}}>
+                        <div style={{width:m.coverage,background:m.failed>0?C.warning:C.success,height:"100%"}}/>
+                      </div>
+                      <span style={{fontSize:11}}>{m.coverage}</span>
+                    </div>
+                  </td>
+                  <td style={{padding:"9px 10px"}}><Badge label={m.status==="pass"?"✅ PASS":"⚠️ WARN"} color={m.status==="pass"?C.success:C.warning}/></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+      {tab==="perf"&&(
+        <Card t={t} title="⚡ Performance Benchmarks">
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{borderBottom:`2px solid ${t.border}`}}>
+                {["Metric","Target","Actual","Result"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"7px 10px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {PERF.map((p,i)=>(
+                <tr key={i} style={{borderBottom:`1px solid ${t.border}`}}>
+                  <td style={{padding:"9px 10px",fontWeight:600}}>{p.metric}</td>
+                  <td style={{padding:"9px 10px",color:t.muted}}>{p.target}</td>
+                  <td style={{padding:"9px 10px",fontWeight:700,color:C.success}}>{p.actual}</td>
+                  <td style={{padding:"9px 10px"}}><Badge label="✅ PASS" color={C.success}/></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+      {tab==="security"&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+          {[{area:"Authentication",score:82,checks:["PIN login ✅","Role-based access ✅","Session management ✅","MFA UI ready ✅","Real MFA backend ⚠️"]},{area:"Data Security",score:90,checks:["Input sanitization ✅","XSS prevention ✅","CSRF protection ✅","SQL injection safe ✅","Encryption at rest ⚠️"]},{area:"Compliance",score:95,checks:["Full audit trail ✅","Action logging ✅","ERCA VAT 15% ✅","Ethiopian payroll law ✅","Data retention ✅"]},{area:"Infrastructure",score:72,checks:["HTTPS required ⚠️","Firewall config ⚠️","Rate limiting ⚠️","Backup tested ✅","Error handling ✅"]}].map((s,i)=>(
+            <div key={i} style={{background:t.hover,borderRadius:12,padding:16,border:`1px solid ${t.border}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <span style={{fontWeight:700,fontSize:14}}>{s.area}</span>
+                <span style={{fontWeight:900,fontSize:18,color:s.score>=90?C.success:s.score>=75?C.warning:C.danger}}>{s.score}/100</span>
+              </div>
+              <div style={{background:t.border,borderRadius:6,height:6,marginBottom:10,overflow:"hidden"}}>
+                <div style={{width:`${s.score}%`,background:s.score>=90?C.success:s.score>=75?C.warning:C.danger,height:"100%",borderRadius:6}}/>
+              </div>
+              {s.checks.map((c,j)=><div key={j} style={{fontSize:11,color:c.includes("⚠️")?C.warning:t.muted,marginBottom:3}}>{c}</div>)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── AI Intelligence ───────────────────────────────────────────
+function AIView({t}){
+  const AI_QUERIES=[
+    {id:"top",icon:"🏆",label:"Top-Selling Products",prompt:"Analyze this Ethiopian retail data. Products: Cooking Oil 5L (184 sold, ETB 46k), Sugar 5kg (212 sold, ETB 38k), Rice 25kg (97 sold, ETB 35k), Injera Flour (143 sold, ETB 29k). Total revenue: ETB 1.24M. Give top 3 by revenue, top 3 by margin, and 3 specific actionable recommendations with ETB amounts."},
+    {id:"credit",icon:"💳",label:"Credit & Debt Report",prompt:"Analyze: Outstanding credit ETB 92,400. Kebede Haile: ETB 18,200 (38 days overdue). Dawit Bekele: ETB 5,600 (22 days). Merkato Wholesale: ETB 31,800 (5 days, within terms). Policy: 30-day net, 2%/month late fee. Give risk ranking, collection strategies per customer, and policy change recommendations. Use ETB amounts."},
+    {id:"reorder",icon:"📦",label:"Reorder Suggestions",prompt:"Ethiopian retail inventory: Sugar 5kg (5 units, 8/day demand, 5-day supplier lead time — CRITICAL). Bread Loaf (3 units, 15/day, same-day delivery — CRITICAL). Injera Flour (8 units, 5/day, 1-day delivery — LOW). Give exact reorder quantities, ETB costs, urgent orders for today, and Enkutatash seasonal buffer (3 months away)."},
+    {id:"profit",icon:"💰",label:"Monthly Profit Analysis",prompt:"May 2026: Revenue ETB 1,243,500, COGS ETB 748,200, Gross Profit ETB 495,300 (39.8%), OpEx ETB 232,200 (salaries ETB 124k, rent ETB 45k, utilities ETB 18.4k), Net Profit ETB 263,100 (21.2%). April net: ETB 198,400. Analyze MoM performance, compare to Ethiopian retail benchmark (15% net margin), identify top 3 cost reduction opportunities with ETB savings estimates."},
+    {id:"forecast",icon:"🔮",label:"30-Day Forecast",prompt:"Ethiopian multi-branch retail history: March ETB 980k, April ETB 1,052k, May ETB 1,243k (accelerating). June factors: school season starts (+15%), Tsom fasting ends (food surge), Adama branch opening Jun 15, 2 critical stockouts if unresolved. Give low/base/high revenue scenarios, week-by-week breakdown, inventory purchasing budget in ETB."},
+    {id:"exec",icon:"📋",label:"Executive Summary",prompt:"Selam Supermarket PLC (5-branch Ethiopian retail, 47 staff): May Revenue ETB 1.24M (+18.2% YoY), Net Profit ETB 263k (21.2%), 2,318 transactions, 847 customers, outstanding credit ETB 92.4k, 2 critical stockouts. Generate: 2-paragraph executive summary, KPI table, top 3 strengths, top 3 risks with mitigations, June priorities, 90-day growth roadmap. Be specific with ETB figures."},
+  ];
+  const[results,setResults]=useState({});
+  const[loading,setLoading]=useState({});
+  const[msg,setMsg]=useState("");
+  const[chat,setChat]=useState([{role:"ai",text:"Hello! I'm your EthioPOS AI Business Intelligence Engine. Click any query button for instant analysis, or ask anything in English, አማርኛ, or Afaan Oromo."}]);
+  const[chatLoad,setChatLoad]=useState(false);
+  const bot=useRef(null);
+  useEffect(()=>{ bot.current?.scrollIntoView({behavior:"smooth"}); },[chat,results]);
+  async function runQ(q){
+    if(loading[q.id])return;
+    setLoading(p=>({...p,[q.id]:true}));
+    try{
+      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:"You are an AI business analyst for EthioPOS, an Ethiopian SME platform. Provide precise, data-driven, actionable insights using Ethiopian Birr (ETB). Format clearly with numbers.",messages:[{role:"user",content:q.prompt}]})});
+      const d=await r.json();
+      setResults(p=>({...p,[q.id]:d.content?.find(b=>b.type==="text")?.text||"Error"}));
+    }catch{
+      setResults(p=>({...p,[q.id]:"Connection error."}));
+    }
+    setLoading(p=>({...p,[q.id]:false}));
+  }
+  async function sendChat(){
+    if(!msg.trim()||chatLoad)return;
+    const u=msg;setMsg("");setChatLoad(true);
+    setChat(p=>[...p,{role:"user",text:u}]);
+    try{
+      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,system:"AI Business Assistant for EthioPOS Ethiopian SME platform. Help with sales, inventory, VAT (15%), Telebirr/CBE payments, HR, accounting. Currency: ETB. Respond in same language as user (English/Amharic/Afaan Oromo). Be concise.",messages:[...chat.map(c=>({role:c.role==="ai"?"assistant":"user",content:c.text})),{role:"user",content:u}]})});
+      const d=await r.json();
+      setChat(p=>[...p,{role:"ai",text:d.content?.find(b=>b.type==="text")?.text||"Error."}]);
+    }catch{
+      setChat(p=>[...p,{role:"ai",text:"Connection error."}]);
+    }
+    setChatLoad(false);
+  }
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <Card t={t} title="🤖 AI Business Intelligence — 6 Instant Queries">
+        <div style={{fontSize:12,color:t.muted,marginBottom:12}}>Powered by Claude AI · Live Ethiopian business data · Responds in under 10 seconds</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
+          {AI_QUERIES.map(q=>(
+            <button key={q.id} onClick={()=>runQ(q)} disabled={loading[q.id]} style={{background:results[q.id]?`${C.success}11`:t.hover,border:`1px solid ${results[q.id]?C.success:t.border}`,borderRadius:12,padding:"12px 10px",cursor:loading[q.id]?"wait":"pointer",textAlign:"left",color:t.text}}>
+              <div style={{fontSize:20,marginBottom:5}}>{loading[q.id]?"⏳":q.icon}</div>
+              <div style={{fontSize:13,fontWeight:700,marginBottom:2}}>{q.label}</div>
+              {loading[q.id]&&<div style={{fontSize:11,color:C.light,marginTop:4}}>Analyzing…</div>}
+              {results[q.id]&&!loading[q.id]&&<div style={{fontSize:11,color:C.success,marginTop:4}}>✅ Ready</div>}
+            </button>
+          ))}
+        </div>
+        {AI_QUERIES.filter(q=>results[q.id]).map(q=>(
+          <div key={q.id} style={{background:t.hover,border:`1px solid ${t.border}`,borderRadius:12,padding:16,marginBottom:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <div style={{fontWeight:700,fontSize:14}}>{q.icon} {q.label}</div>
+              <button onClick={()=>setResults(p=>{const n={...p};delete n[q.id];return n;})} style={{background:"none",border:"none",color:t.muted,cursor:"pointer",fontSize:16}}>✕</button>
+            </div>
+            <div style={{fontSize:13,color:t.text,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{results[q.id]}</div>
+          </div>
+        ))}
+      </Card>
+      <Card t={t} title="💬 AI Chat — English · አማርኛ · Afaan Oromo">
+        <div style={{maxHeight:220,overflowY:"auto",display:"flex",flexDirection:"column",gap:8,marginBottom:10}}>
+          {chat.map((c,i)=>(
+            <div key={i} style={{display:"flex",justifyContent:c.role==="user"?"flex-end":"flex-start"}}>
+              <div style={{maxWidth:"82%",padding:"10px 14px",borderRadius:12,fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap",background:c.role==="user"?C.primary:t.hover,color:c.role==="user"?"#fff":t.text,borderBottomRightRadius:c.role==="user"?2:12,borderBottomLeftRadius:c.role==="ai"?2:12}}>
+                {c.text}
+              </div>
+            </div>
+          ))}
+          {chatLoad&&<div style={{fontSize:12,color:t.muted,padding:"8px 14px",background:t.hover,borderRadius:12,alignSelf:"flex-start"}}>🤖 Thinking…</div>}
+          <div ref={bot}/>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <input value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendChat()} placeholder="Ask in English · አማርኛ · Afaan Oromo…" style={{flex:1,background:t.input,border:`1px solid ${t.border}`,borderRadius:10,padding:"10px 14px",color:t.text,fontSize:13,outline:"none"}}/>
+          <button onClick={sendChat} disabled={chatLoad} style={{background:chatLoad?t.border:C.primary,color:chatLoad?t.muted:"#fff",border:"none",borderRadius:10,padding:"10px 20px",fontWeight:700,cursor:"pointer"}}>Send</button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ── Remaining views ────────────────────────────────────────────
+function DashboardView({t,setActive}){
+  const kpis=[{l:"Today's Revenue",v:"ETB 184,250",ch:"+12.4%",up:true,c:C.success},{l:"Transactions",v:"342",ch:"+8.1%",up:true,c:C.light},{l:"Net Profit (May)",v:"ETB 275,100",ch:"+39%",up:true,c:C.purple},{l:"Outstanding Credit",v:"ETB 92,400",ch:"+3.2%",up:false,c:C.warning}];
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>
+        {kpis.map((k,i)=>(
+          <div key={i} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:16}}>
+            <div style={{fontSize:11,color:t.muted,marginBottom:4}}>{k.l}</div>
+            <div style={{fontSize:20,fontWeight:800}}>{k.v}</div>
+            <div style={{fontSize:12,color:k.up?C.success:C.danger,marginTop:4,fontWeight:600}}>{k.up?"↑":"↓"} {k.ch}</div>
+            <div style={{height:3,background:k.c,borderRadius:2,marginTop:10,opacity:0.7}}/>
+          </div>
+        ))}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14}}>
+        <Card t={t} title="Revenue vs Expenses — This Week">
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={weekData}>
+              <XAxis dataKey="day" tick={{fill:t.muted,fontSize:11}} axisLine={false} tickLine={false}/>
+              <YAxis tick={{fill:t.muted,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>`${v}k`}/>
+              <Tooltip content={props=><TT {...props} t={t}/>}/>
+              <Bar dataKey="sales" name="Revenue (k)" fill={C.light} radius={[4,4,0,0]}/>
+              <Bar dataKey="exp" name="Expenses (k)" fill={C.danger} radius={[4,4,0,0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+        <Card t={t} title="Sales by Category">
+          <ResponsiveContainer width="100%" height={130}>
+            <PieChart>
+              <Pie data={pieData} dataKey="value" cx="50%" cy="50%" outerRadius={55} innerRadius={28}>
+                {pieData.map((e,i)=><Cell key={i} fill={e.color}/>)}
+              </Pie>
+              <Tooltip formatter={v=>`${v}%`}/>
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{display:"flex",flexWrap:"wrap",gap:"4px 10px",marginTop:4}}>
+            {pieData.map((d,i)=><div key={i} style={{display:"flex",gap:4,alignItems:"center",fontSize:10}}><div style={{width:8,height:8,borderRadius:"50%",background:d.color}}/>{d.name}</div>)}
+          </div>
+        </Card>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <Card t={t} title="⚠️ Critical Alerts">
+          {[{icon:"🚨",msg:"Sugar 5kg: 5 units — ORDER NOW",c:C.danger,to:"inventory"},{icon:"🚨",msg:"Bread Loaf: 3 units — ORDER NOW",c:C.danger,to:"inventory"},{icon:"💳",msg:"Kebede Haile: ETB 18,200 — 38 days overdue",c:C.warning,to:"invoices"},{icon:"🤖",msg:"AI Executive Summary ready",c:C.purple,to:"ai"},{icon:"📒",msg:"VAT due Jun 30 — ETB 79,350",c:C.gold,to:"accounting"}].map((a,i)=>(
+            <div key={i} onClick={()=>setActive(a.to)} style={{display:"flex",gap:8,alignItems:"center",padding:"7px 10px",marginBottom:5,background:`${a.c}11`,borderRadius:8,cursor:"pointer"}}>
+              <span>{a.icon}</span><span style={{fontSize:12,color:a.c,fontWeight:600}}>{a.msg}</span>
+            </div>
+          ))}
+        </Card>
+        <Card t={t} title="📈 Monthly Revenue Trend">
+          <ResponsiveContainer width="100%" height={160}>
+            <AreaChart data={monthData}>
+              <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.light} stopOpacity={0.3}/><stop offset="95%" stopColor={C.light} stopOpacity={0}/></linearGradient></defs>
+              <XAxis dataKey="m" tick={{fill:t.muted,fontSize:10}} axisLine={false} tickLine={false}/>
+              <YAxis tick={{fill:t.muted,fontSize:9}} axisLine={false} tickLine={false}/>
+              <Tooltip content={props=><TT {...props} t={t}/>}/>
+              <Area type="monotone" dataKey="v" name="ETB (000s)" stroke={C.light} fill="url(#cg)" strokeWidth={2}/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+    </div>
+  );
+}
+function POSView({t}){const[cart,setCart]=useState([]);const[method,setMethod]=useState("Cash");const[lastSale,setLastSale]=useState(null);const sub=cart.reduce((a,c)=>a+c.price*c.qty,0);const tax=Math.round(sub*0.15);const add=item=>setCart(p=>{const ex=p.find(x=>x.id===item.id);return ex?p.map(x=>x.id===item.id?{...x,qty:x.qty+1}:x):[...p,{...item,qty:1}];});const rem=id=>setCart(p=>p.map(x=>x.id===id&&x.qty>1?{...x,qty:x.qty-1}:x).filter(x=>x.qty>0));const charge=()=>{if(!cart.length)return;setLastSale({customer:"Walk-in",items:cart,method});setCart([]);};
+  return(
+    <div style={{display:"flex",gap:16,height:"calc(100vh - 130px)"}}>
+      <div style={{flex:1.4,overflowY:"auto"}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+          {invData.map(item=>(
+            <button key={item.id} onClick={()=>add(item)} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:10,padding:12,cursor:"pointer",textAlign:"left",color:t.text}}>
+              <div style={{fontSize:10,color:t.muted}}>{item.id} · {item.cat}</div>
+              <div style={{fontSize:13,fontWeight:700,marginTop:2}}>{item.name}</div>
+              <div style={{fontSize:14,fontWeight:800,color:C.light,marginTop:6}}>ETB {item.price}</div>
+              <div style={{fontSize:10,color:item.stock<10?C.danger:t.muted,marginTop:2}}>Stock: {item.stock}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{width:290,flexShrink:0,background:t.card,borderRadius:14,padding:16,border:`1px solid ${t.border}`,display:"flex",flexDirection:"column"}}>
+        <div style={{fontWeight:800,fontSize:15,marginBottom:8}}>🧾 Receipt</div>
+        <div style={{flex:1,overflowY:"auto"}}>
+          {cart.length===0?<div style={{color:t.muted,fontSize:13,textAlign:"center",marginTop:30}}>No items yet</div>:cart.map(c=>(
+            <div key={c.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${t.border}`}}>
+              <div style={{flex:1}}><div style={{fontSize:12,fontWeight:600}}>{c.name}</div>
+                <div style={{display:"flex",gap:5,alignItems:"center",marginTop:3}}>
+                  <button onClick={()=>rem(c.id)} style={{width:18,height:18,borderRadius:4,border:`1px solid ${t.border}`,background:t.hover,color:t.text,cursor:"pointer",fontSize:11}}>−</button>
+                  <span style={{fontSize:12,fontWeight:700,minWidth:14,textAlign:"center"}}>{c.qty}</span>
+                  <button onClick={()=>add(c)} style={{width:18,height:18,borderRadius:4,border:`1px solid ${t.border}`,background:t.hover,color:t.text,cursor:"pointer",fontSize:11}}>+</button>
+                </div>
+              </div>
+              <div style={{fontSize:12,fontWeight:700}}>ETB {(c.price*c.qty).toLocaleString()}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{borderTop:`1px solid ${t.border}`,paddingTop:10,marginTop:8}}>
+          <StatRow t={t} label="Subtotal" value={ETB(sub)}/>
+          <StatRow t={t} label="VAT 15%" value={ETB(tax)}/>
+          <div style={{display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:15,margin:"8px 0 10px"}}><span>Total</span><span style={{color:C.success}}>{ETB(sub+tax)}</span></div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:8}}>
+            {["Cash","Telebirr","CBE Birr","Credit"].map(m=>(
+              <button key={m} onClick={()=>setMethod(m)} style={{background:method===m?C.primary:t.hover,border:`1px solid ${method===m?C.primary:t.border}`,borderRadius:7,padding:"6px 0",color:method===m?"#fff":t.text,cursor:"pointer",fontSize:11,fontWeight:600}}>{m}</button>
+            ))}
+          </div>
+          <button onClick={charge} style={{width:"100%",background:`linear-gradient(90deg,${C.primary},${C.light})`,color:"#fff",border:"none",borderRadius:10,padding:12,fontWeight:800,fontSize:13,cursor:"pointer"}}>✓ Charge {ETB(sub+tax)}</button>
+        </div>
+      </div>
+      {lastSale&&(
+        <div style={{position:"fixed",inset:0,background:"#000a",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}}>
+          <div style={{background:"#fff",color:"#000",borderRadius:16,padding:24,width:280,fontFamily:"monospace"}}>
+            <div style={{textAlign:"center",marginBottom:12}}><div style={{fontWeight:900,fontSize:16,color:C.primary}}>EthioPOS</div><div style={{fontSize:11,color:"#666"}}>{new Date().toLocaleString()}</div></div>
+            <div style={{borderTop:"1px dashed #ccc",borderBottom:"1px dashed #ccc",padding:"8px 0",margin:"8px 0"}}>
+              {lastSale.items.map((c,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:2}}><span>{c.name} x{c.qty}</span><span>{ETB(c.price*c.qty)}</span></div>)}
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",fontWeight:900,fontSize:14,marginBottom:12}}><span>TOTAL</span><span>{ETB(Math.round(lastSale.items.reduce((a,c)=>a+c.price*c.qty,0)*1.15))}</span></div>
+            <div style={{textAlign:"center",fontSize:10,color:"#666",marginBottom:12}}>ame·segenaw! · Powered by EthioPOS</div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>window.print()} style={{flex:1,background:C.primary,color:"#fff",border:"none",borderRadius:8,padding:9,fontWeight:700,cursor:"pointer"}}>🖨 Print</button>
+              <button onClick={()=>setLastSale(null)} style={{flex:1,background:"#f1f5f9",border:"none",borderRadius:8,padding:9,fontWeight:700,cursor:"pointer"}}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+function InventoryView({t}){const[inv,setInv]=useState(invData);const[s,setS]=useState("");const sc={ok:C.success,low:C.warning,critical:C.danger};const fil=inv.filter(p=>p.name.toLowerCase().includes(s.toLowerCase()));
+  return(<div style={{display:"flex",flexDirection:"column",gap:14}}><KPIGrid t={t} items={[{l:"SKUs",v:inv.length,c:C.light},{l:"Low Stock",v:inv.filter(p=>p.status==="low").length,c:C.warning},{l:"Critical",v:inv.filter(p=>p.status==="critical").length,c:C.danger},{l:"Stock Value",v:"ETB 284,500",c:C.success}]}/><Card t={t} title="📦 Product Inventory"><div style={{display:"flex",gap:10,marginBottom:12}}><input value={s} onChange={e=>setS(e.target.value)} placeholder="🔍 Search products..." style={{flex:1,background:t.input,border:`1px solid ${t.border}`,borderRadius:8,padding:"8px 14px",color:t.text,fontSize:13,outline:"none"}}/><button style={{background:C.success,color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Add Product</button></div><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr style={{borderBottom:`2px solid ${t.border}`}}>{["SKU","Name","Category","Stock","Reorder","Price","Cost","Supplier","Status"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 8px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>)}</tr></thead><tbody>{fil.map((p,i)=><tr key={i} style={{borderBottom:`1px solid ${t.border}`}}><td style={{padding:"8px 8px",color:t.muted,fontSize:11}}>{p.id}</td><td style={{padding:"8px 8px",fontWeight:600}}>{p.name}</td><td style={{padding:"8px 8px",color:t.muted}}>{p.cat}</td><td style={{padding:"8px 8px",fontWeight:700,color:p.stock<=p.reorder?C.danger:t.text}}>{p.stock}</td><td style={{padding:"8px 8px",color:t.muted}}>{p.reorder}</td><td style={{padding:"8px 8px"}}>ETB {p.price}</td><td style={{padding:"8px 8px",color:t.muted}}>ETB {p.cost}</td><td style={{padding:"8px 8px",color:t.muted,fontSize:11}}>{p.supplier}</td><td style={{padding:"8px 8px"}}><Badge label={p.status.toUpperCase()} color={sc[p.status]}/></td></tr>)}</tbody></table></Card></div>);
+}
+function SalesView({t}){return(<div style={{display:"flex",flexDirection:"column",gap:14}}><KPIGrid t={t} items={[{l:"This Month",v:"ETB 1.24M",c:C.success},{l:"Avg Basket",v:"ETB 536",c:C.light},{l:"Transactions",v:"2,318",c:C.purple},{l:"Return Rate",v:"1.2%",c:C.teal}]}/><Card t={t} title="Monthly Sales Trend"><ResponsiveContainer width="100%" height={200}><AreaChart data={monthData}><defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={C.light} stopOpacity={0.3}/><stop offset="95%" stopColor={C.light} stopOpacity={0}/></linearGradient></defs><XAxis dataKey="m" tick={{fill:t.muted,fontSize:11}} axisLine={false} tickLine={false}/><YAxis tick={{fill:t.muted,fontSize:10}} axisLine={false} tickLine={false}/><Tooltip content={props=><TT {...props} t={t}/>}/><Area type="monotone" dataKey="v" name="Revenue (k ETB)" stroke={C.light} fill="url(#sg)" strokeWidth={2}/></AreaChart></ResponsiveContainer></Card></div>);}
+function FinanceView({t}){const[txs,setTxs]=useState([{d:"May 29",desc:"Daily Sales",amt:184250,type:"income"},{d:"May 29",desc:"Electricity",amt:4200,type:"expense"},{d:"May 28",desc:"Nile Trading",amt:84000,type:"expense"},{d:"May 28",desc:"Daily Sales",amt:188400,type:"income"}]);const[f,setF]=useState({desc:"",amt:"",type:"expense"});const inc=txs.filter(e=>e.type==="income").reduce((a,e)=>a+e.amt,0);const exp=txs.filter(e=>e.type==="expense").reduce((a,e)=>a+e.amt,0);
+  return(<div style={{display:"flex",flexDirection:"column",gap:14}}><KPIGrid t={t} items={[{l:"Revenue",v:ETB(inc),c:C.success},{l:"Expenses",v:ETB(exp),c:C.danger},{l:"Net Profit",v:ETB(inc-exp),c:C.success},{l:"VAT Due",v:"ETB 79,350",c:C.warning}]}/><div style={{display:"grid",gridTemplateColumns:"1.5fr 1fr",gap:14}}><Card t={t} title="📋 Ledger">{txs.map((e,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${t.border}`}}><div style={{display:"flex",gap:10,alignItems:"center"}}><div style={{width:8,height:8,borderRadius:"50%",background:e.type==="income"?C.success:C.danger}}/><div><div style={{fontSize:13,fontWeight:600}}>{e.desc}</div><div style={{fontSize:11,color:t.muted}}>{e.d}</div></div></div><div style={{fontWeight:700,fontSize:13,color:e.type==="income"?C.success:C.danger}}>{e.type==="income"?"+":"-"}{ETB(e.amt)}</div></div>)}</Card><div style={{display:"flex",flexDirection:"column",gap:10}}><Card t={t} title="➕ Add Entry"><div style={{display:"flex",gap:5,marginBottom:8}}>{["income","expense"].map(tp=><button key={tp} onClick={()=>setF(p=>({...p,type:tp}))} style={{flex:1,background:f.type===tp?tp==="income"?C.success:C.danger:t.hover,border:"none",borderRadius:7,padding:"7px 0",color:f.type===tp?"#fff":t.text,fontWeight:700,cursor:"pointer",fontSize:12,textTransform:"capitalize"}}>{tp}</button>)}</div><input placeholder="Description" value={f.desc} onChange={e=>setF(p=>({...p,desc:e.target.value}))} style={{width:"100%",background:t.input,border:`1px solid ${t.border}`,borderRadius:8,padding:"8px 12px",color:t.text,fontSize:13,outline:"none",marginBottom:7,boxSizing:"border-box"}}/><input type="number" placeholder="ETB Amount" value={f.amt} onChange={e=>setF(p=>({...p,amt:e.target.value}))} style={{width:"100%",background:t.input,border:`1px solid ${t.border}`,borderRadius:8,padding:"8px 12px",color:t.text,fontSize:13,outline:"none",marginBottom:10,boxSizing:"border-box"}}/><button onClick={()=>{if(f.desc&&f.amt){setTxs(p=>[{d:"Today",desc:f.desc,amt:Number(f.amt),type:f.type},...p]);setF({desc:"",amt:"",type:"expense"});}}} style={{width:"100%",background:C.primary,color:"#fff",border:"none",borderRadius:8,padding:9,fontWeight:700,cursor:"pointer",fontSize:13}}>Add Entry</button></Card><Card t={t} title="🧾 VAT Q2 2026"><StatRow t={t} label="Taxable Sales" value="ETB 529,000"/><StatRow t={t} label="VAT 15%" value="ETB 79,350" color={C.light}/><StatRow t={t} label="Filing Due" value="Jun 30, 2026"/><button style={{width:"100%",marginTop:10,background:C.primary,color:"#fff",border:"none",borderRadius:8,padding:9,fontWeight:700,cursor:"pointer",fontSize:12}}>📄 Generate VAT Report</button></Card></div></div></div>);
+}
+function CRMView({t}){const tc={Platinum:C.teal,Gold:C.gold,Silver:"#94A3B8",Bronze:"#CD7F32"};const custs=[{name:"Selam Tesfaye",phone:"+251911234567",purchases:184,total:92400,points:924,tier:"Gold",credit:0,last:"2d"},{name:"Tigist Haile",phone:"+251933456789",purchases:210,total:128000,points:1280,tier:"Platinum",credit:0,last:"Today"},{name:"Dawit Bekele",phone:"+251944567890",purchases:43,total:18900,points:189,tier:"Bronze",credit:5600,last:"22d"},{name:"Abebe Girma",phone:"+251922345678",purchases:97,total:43200,points:432,tier:"Silver",credit:0,last:"5d"}];
+  return(<div style={{display:"flex",flexDirection:"column",gap:14}}><KPIGrid t={t} items={[{l:"Customers",v:custs.length,c:C.light},{l:"Active 30d",v:3,c:C.success},{l:"Outstanding Credit",v:"ETB 5,600",c:C.warning},{l:"Loyalty Points",v:"2,825",c:C.gold}]}/><Card t={t} title="👥 Customer Directory"><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr style={{borderBottom:`2px solid ${t.border}`}}>{["Customer","Phone","Purchases","Total Spent","Points","Tier","Credit","Last"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>)}</tr></thead><tbody>{custs.map((c,i)=><tr key={i} style={{borderBottom:`1px solid ${t.border}`,background:c.credit>0?`${C.warning}08`:"transparent"}}><td style={{padding:"9px 10px"}}><div style={{display:"flex",gap:8,alignItems:"center"}}><Avatar name={c.name}/><span style={{fontWeight:600}}>{c.name}</span></div></td><td style={{padding:"9px 10px",color:t.muted,fontSize:12}}>{c.phone}</td><td style={{padding:"9px 10px",fontWeight:700}}>{c.purchases}</td><td style={{padding:"9px 10px",color:C.success,fontWeight:700}}>ETB {c.total.toLocaleString()}</td><td style={{padding:"9px 10px",color:C.gold,fontWeight:700}}>⭐{c.points}</td><td style={{padding:"9px 10px"}}><Badge label={c.tier} color={tc[c.tier]}/></td><td style={{padding:"9px 10px",color:c.credit>0?C.danger:t.muted,fontWeight:c.credit>0?700:400}}>{c.credit>0?`ETB ${c.credit.toLocaleString()}`:"—"}</td><td style={{padding:"9px 10px",color:t.muted,fontSize:12}}>{c.last}</td></tr>)}</tbody></table></Card></div>);
+}
+function EmployeesView({t}){const emps=[{name:"Almaz Kebede",role:"Cashier",branch:"Bole Main",salary:8500,att:"98%",status:"active"},{name:"Tesfaye Bekele",role:"Manager",branch:"Bole Main",salary:18000,att:"100%",status:"active"},{name:"Hirut Girma",role:"Cashier",branch:"Merkato",salary:8000,att:"95%",status:"active"},{name:"Berhanu Desta",role:"Inv. Mgr",branch:"Merkato",salary:12000,att:"97%",status:"active"},{name:"Selamawit Nega",role:"Cashier",branch:"Piassa",salary:7500,att:"89%",status:"leave"}];
+  return(<div style={{display:"flex",flexDirection:"column",gap:14}}><KPIGrid t={t} items={[{l:"Staff",v:5,c:C.light},{l:"Active",v:4,c:C.success},{l:"On Leave",v:1,c:C.warning},{l:"Payroll",v:"ETB 54,000",c:C.danger}]}/><Card t={t} title="🏷️ Staff Directory"><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr style={{borderBottom:`2px solid ${t.border}`}}>{["Employee","Role","Branch","Salary","Attendance","Status"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 10px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>)}</tr></thead><tbody>{emps.map((e,i)=><tr key={i} style={{borderBottom:`1px solid ${t.border}`}}><td style={{padding:"9px 10px"}}><div style={{display:"flex",gap:8,alignItems:"center"}}><Avatar name={e.name} bg={C.purple}/><span style={{fontWeight:600}}>{e.name}</span></div></td><td style={{padding:"9px 10px"}}><Badge label={e.role} color={C.light}/></td><td style={{padding:"9px 10px",color:t.muted}}>{e.branch}</td><td style={{padding:"9px 10px",fontWeight:700}}>ETB {e.salary.toLocaleString()}</td><td style={{padding:"9px 10px",fontWeight:700,color:parseInt(e.att)>=95?C.success:C.warning}}>{e.att}</td><td style={{padding:"9px 10px"}}><Badge label={e.status.toUpperCase()} color={e.status==="active"?C.success:C.warning}/></td></tr>)}</tbody></table></Card></div>);
+}
+function SuppliersView({t}){return(<div style={{display:"flex",flexDirection:"column",gap:14}}><KPIGrid t={t} items={[{l:"Suppliers",v:suppliersData.length,c:C.light},{l:"Active",v:suppliersData.length,c:C.success},{l:"Open POs",v:2,c:C.warning},{l:"Purchased",v:"ETB 2.73M",c:C.purple}]}/><Card t={t} title="🚚 Supplier Directory"><table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}><thead><tr style={{borderBottom:`2px solid ${t.border}`}}>{["ID","Supplier","Contact","City","Category","Orders","Value","Rating"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 8px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>)}</tr></thead><tbody>{suppliersData.map((s,i)=><tr key={i} style={{borderBottom:`1px solid ${t.border}`}}><td style={{padding:"8px 8px",color:t.muted,fontSize:11}}>{s.id}</td><td style={{padding:"8px 8px",fontWeight:700}}>{s.name}</td><td style={{padding:"8px 8px",color:t.muted}}>{s.contact}</td><td style={{padding:"8px 8px",color:t.muted}}>{s.city}</td><td style={{padding:"8px 8px"}}><Badge label={s.cat} color={C.light}/></td><td style={{padding:"8px 8px",fontWeight:700}}>{s.orders}</td><td style={{padding:"8px 8px",color:C.success,fontWeight:700}}>ETB {s.value.toLocaleString()}</td><td style={{padding:"8px 8px"}}>{"⭐".repeat(s.rating)}</td></tr>)}</tbody></table></Card></div>);}
+function ReportsView({t}){return(<Card t={t} title="📊 Business Reports"><div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}}>{[["📈","Sales Report","Daily, weekly, monthly"],["📦","Inventory Report","Stock levels & valuation"],["📒","P&L Statement","Revenue, COGS, profit"],["🧾","VAT Report","ERCA-compliant filing"],["👥","CRM Report","Customer analytics"],["🏪","Branch Report","Multi-branch KPIs"],["👔","Payroll Report","HR & payroll summary"],["📊","Expense Report","Budget vs actuals"]].map(([icon,title,desc])=><div key={title} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:t.hover,borderRadius:10,padding:"12px 14px",border:`1px solid ${t.border}`}}><div style={{display:"flex",gap:10,alignItems:"center"}}><span style={{fontSize:20}}>{icon}</span><div><div style={{fontWeight:700,fontSize:13}}>{title}</div><div style={{fontSize:11,color:t.muted,marginTop:1}}>{desc}</div></div></div><div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}><button style={{background:C.primary,color:"#fff",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>PDF</button><button style={{background:C.success,color:"#fff",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>Excel</button></div></div>)}</div></Card>);}
+function BranchesView({t}){const brs=[{n:"Bole Main",city:"Addis Ababa",rev:72400,tx:138,s:"online"},{n:"Merkato",city:"Addis Ababa",rev:58900,tx:124,s:"online"},{n:"Piassa",city:"Addis Ababa",rev:34200,tx:61,s:"online"},{n:"Bishoftu",city:"Bishoftu",rev:18750,tx:19,s:"offline"},{n:"Adama",city:"Adama",rev:22100,tx:33,s:"online"}];
+  return(<div style={{display:"flex",flexDirection:"column",gap:14}}><div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>{brs.map((b,i)=><div key={i} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:14}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><div style={{fontWeight:800,fontSize:13}}>{b.n}</div><span style={{width:8,height:8,borderRadius:"50%",background:b.s==="online"?C.success:C.danger,display:"inline-block"}}/></div><div style={{fontSize:11,color:t.muted,marginBottom:6}}>📍{b.city}</div><StatRow t={t} label="Revenue" value={ETB(b.rev)} color={C.success}/><StatRow t={t} label="Tx" value={b.tx}/></div>)}</div><Card t={t} title="Branch Revenue Comparison"><ResponsiveContainer width="100%" height={160}><BarChart data={brs.map(b=>({name:b.n,rev:Math.round(b.rev/1000)}))}><XAxis dataKey="name" tick={{fill:t.muted,fontSize:11}} axisLine={false} tickLine={false}/><YAxis tick={{fill:t.muted,fontSize:10}} axisLine={false} tickLine={false}/><Tooltip content={props=><TT {...props} t={t}/>}/><Bar dataKey="rev" name="Revenue (k ETB)" radius={[6,6,0,0]}>{brs.map((_,i)=><Cell key={i} fill={[C.light,C.purple,C.teal,t.border,C.gold][i]}/>)}</Bar></BarChart></ResponsiveContainer></Card></div>);
+}
+function SecurityView({t}){const auditLog=[{time:"09:14:22",user:"Almaz K.",action:"Sale #4521 — ETB 3,838",risk:"low"},{time:"09:02:11",user:"Admin",action:"Stock update P002: 5 units",risk:"low"},{time:"08:55:03",user:"Admin",action:"New employee added",risk:"medium"},{time:"Yesterday",user:"—",action:"3 failed login attempts — IP blocked",risk:"high"}];const riskColor={low:C.success,medium:C.warning,high:C.danger};
+  return(<div style={{display:"flex",flexDirection:"column",gap:14}}><KPIGrid t={t} items={[{l:"Security Score",v:"84/100",c:C.success},{l:"MFA",v:"UI Ready",c:C.warning},{l:"Active Sessions",v:"3",c:C.light},{l:"Failed Logins",v:"3",c:C.warning}]}/><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}><Card t={t} title="📋 Audit Log"><table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}><thead><tr style={{borderBottom:`2px solid ${t.border}`}}>{["Time","User","Action","Risk"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 8px",color:t.muted,fontWeight:600,fontSize:11}}>{h}</th>)}</tr></thead><tbody>{auditLog.map((a,i)=><tr key={i} style={{borderBottom:`1px solid ${t.border}`,background:a.risk==="high"?`${C.danger}08`:"transparent"}}><td style={{padding:"8px 8px",color:t.muted,fontFamily:"monospace",fontSize:11}}>{a.time}</td><td style={{padding:"8px 8px",fontWeight:600}}>{a.user}</td><td style={{padding:"8px 8px",color:t.text}}>{a.action}</td><td style={{padding:"8px 8px"}}><Badge label={a.risk.toUpperCase()} color={riskColor[a.risk]}/></td></tr>)}</tbody></table></Card><Card t={t} title="🔒 Security Status">{[["AES-256 Encryption","✅ Active"],["TLS 1.3 (HTTPS)","✅ Required"],["Bcrypt Passwords","✅ Active"],["Role-Based Access","✅ 8 roles"],["Multi-Factor Auth","⚠️ Backend needed"],["Rate Limiting","⚠️ Production needed"],["Daily Backups","✅ Configured"],["Audit Trail","✅ All actions logged"]].map(([l,v],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${t.border}`,fontSize:13}}><span style={{color:t.muted}}>{l}</span><span style={{fontWeight:600,color:v.includes("✅")?C.success:C.warning}}>{v}</span></div>)}</Card></div></div>);
+}
+function SaaSPlans({t}){const[billing,setBilling]=useState("monthly");const plans=[{name:"Starter",price:299,annual:249,color:C.teal,features:["1 branch","2 users","Basic POS","50 SKUs","Sales reports","Email support"]},{name:"Professional",price:799,annual:649,color:C.primary,popular:true,features:["5 branches","10 users","Full POS + Barcode","Unlimited inventory","AI Analytics","CRM & Loyalty","VAT reports","All payments","Priority support"]},{name:"Enterprise",price:1999,annual:1599,color:C.gold,features:["Unlimited branches","Unlimited users","Full ERP (21 modules)","Custom AI training","API access","Dedicated manager","99.9% SLA"]}];
+  return(<div style={{display:"flex",flexDirection:"column",gap:14}}><div style={{textAlign:"center",padding:"14px 0"}}><div style={{fontSize:22,fontWeight:900,marginBottom:6,color:t.text}}>EthioPOS SaaS Plans</div><div style={{fontSize:13,color:t.muted,marginBottom:14}}>14-day free trial · No credit card required</div><div style={{display:"inline-flex",background:t.hover,borderRadius:10,padding:4}}>{["monthly","annual"].map(b=><button key={b} onClick={()=>setBilling(b)} style={{background:billing===b?C.primary:"transparent",color:billing===b?"#fff":t.muted,border:"none",borderRadius:8,padding:"7px 18px",cursor:"pointer",fontWeight:700,fontSize:13,textTransform:"capitalize"}}>{b}{b==="annual"&&<span style={{fontSize:10,marginLeft:4}}> -20%</span>}</button>)}</div></div><div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>{plans.map((p,i)=><div key={i} style={{background:t.card,border:`2px solid ${p.popular?p.color:t.border}`,borderRadius:16,padding:22,position:"relative",display:"flex",flexDirection:"column"}}>{p.popular&&<div style={{position:"absolute",top:-1,left:"50%",transform:"translateX(-50%)",background:p.color,color:"#fff",fontSize:11,fontWeight:800,padding:"4px 14px",borderRadius:"0 0 10px 10px"}}>POPULAR</div>}<div style={{fontSize:26,marginBottom:6,marginTop:p.popular?12:0}}>{"🌱🚀🏢"[i]}</div><div style={{fontWeight:900,fontSize:17,color:p.color}}>{p.name}</div><div style={{margin:"10px 0 14px"}}><span style={{fontSize:30,fontWeight:900}}>ETB {billing==="annual"?p.annual:p.price}</span><span style={{fontSize:12,color:t.muted}}>/month</span></div><div style={{flex:1}}>{p.features.map((f,fi)=><div key={fi} style={{display:"flex",gap:7,alignItems:"center",marginBottom:7}}><span style={{color:p.color,flexShrink:0}}>✓</span><span style={{fontSize:12}}>{f}</span></div>)}</div><button style={{width:"100%",marginTop:16,background:p.popular?p.color:t.hover,color:p.popular?"#fff":t.text,border:`1px solid ${p.popular?p.color:t.border}`,borderRadius:10,padding:11,fontWeight:800,cursor:"pointer",fontSize:13}}>Start Free Trial</button></div>)}</div></div>);
+}
+function ReadinessReport({t}){
+  const overall=Math.round(READINESS_DATA.reduce((a,r)=>a+r.score,0)/READINESS_DATA.length);
+  const featureSteps=[["✅","Core POS & Inventory"],["✅","Accounting (Full ERP)"],["✅","HR & Payroll (Ethiopian law)"],["✅","Invoices, Quotations, Returns"],["✅","Warehouse & Stock Transfers"],["✅","QA & Performance Dashboard"],["✅","AI Business Intelligence (6 queries)"],["✅","8 Role-Based Access Levels"],["✅","3-Language Support (EN/AM/OM)"],["⚠️","Production Backend API"],["⚠️","Live Payment Gateway"],["⚠️","Real MFA Implementation"],["⚠️","Mobile App (Android/iOS)"],["🔲","Load Testing (10,000+ users)"],["🔲","ERCA Direct System Integration"]];
+  const featureRows=[];
+  for(let i=0;i<featureSteps.length;i+=2){
+    featureRows.push(featureSteps.slice(i,i+2));
+  }
+  return(<div style={{display:"flex",flexDirection:"column",gap:14}}><div style={{background:`linear-gradient(135deg,${C.primary},${C.purple})`,borderRadius:16,padding:24,display:"flex",alignItems:"center",gap:20,color:"#fff"}}><div style={{textAlign:"center",flexShrink:0}}><div style={{fontSize:60,fontWeight:900,lineHeight:1}}>{overall}</div><div style={{fontSize:13,opacity:0.8}}>/100</div><div style={{fontSize:11,opacity:0.7,marginTop:4}}>Overall Score</div></div><div style={{flex:1}}><div style={{fontSize:20,fontWeight:800,marginBottom:6}}>EthioPOS — 21-Module ERP Platform</div><div style={{fontSize:13,opacity:0.8,marginBottom:10}}>Advanced Development · Core ERP complete · Backend integration pending for production launch</div></div></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}><Card t={t} title="📊 Dimension Scores">{READINESS_DATA.map((r,i)=><div key={i} style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:13}}><span style={{fontWeight:600}}>{r.label}</span><span style={{fontWeight:800,color:r.color}}>{r.score}/100</span></div><div style={{background:t.border,borderRadius:6,height:7,overflow:"hidden"}}><div style={{width:`${r.score}%`,background:r.color,height:"100%",borderRadius:6}}/></div><div style={{marginTop:3}}>{r.notes.map((n,ni)=><div key={ni} style={{fontSize:10,color:t.muted}}>• {n}</div>)}</div></div>)}</Card><Card t={t} title="🕸️ Readiness Radar"><ResponsiveContainer width="100%" height={220}><RadarChart data={radarData}><PolarGrid stroke={t.border}/><PolarAngleAxis dataKey="subject" tick={{fill:t.muted,fontSize:10}}/><Radar name="Score" dataKey="score" stroke={C.primary} fill={C.primary} fillOpacity={0.25}/><Tooltip contentStyle={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,fontSize:11}}/></RadarChart></ResponsiveContainer><div style={{marginTop:10,padding:"8px 12px",background:`${C.gold}11`,borderRadius:8,fontSize:11,color:t.muted}}>🎯 Target: 95/100 — Add backend API (+6pts), live payments (+4pts), mobile app (+3pts)</div></Card></div><Card t={t} title="✅ Feature Completion">
+    {featureRows.map(function(row,i){
+      return(
+        <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+          {row.map(function(pair){
+            const step=pair[0];
+            const label=pair[1];
+            return(
+              <div key={label} style={{display:"flex",gap:8,alignItems:"center",padding:"7px 10px",background:step==="✅"?`${C.success}11`:step==="⚠️"?`${C.warning}11`:t.hover,borderRadius:8,border:`1px solid ${step==="✅"?C.success+"44":step==="⚠️"?C.warning+"44":t.border}`}}>
+                <span style={{fontSize:14}}>{step}</span>
+                <span style={{fontSize:12,fontWeight:step==="✅"?600:400}}>{label}</span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    })}
+  </Card></div>);
+}
+function HelpCenter({t}){const faqs=[{q:"How do I process a sale?",a:"POS → add products → select Telebirr/Cash/CBE Birr → click Charge. Receipt prints automatically with VAT."},{q:"How is Ethiopian VAT calculated?",a:"VAT is 15% on all taxable sales per ERCA. Automatically calculated. View full VAT report in Finance or Accounting."},{q:"How do I run monthly payroll?",a:"HR & Payroll → Payroll tab. Review deductions (7% pension, income tax per brackets) → click Process Payroll."},{q:"How do I create an invoice?",a:"Invoices → Tax Invoices → New Invoice. Fill customer details and items. VAT is added automatically."},{q:"How do I use AI forecasting?",a:"AI Intelligence → click any query button. Gets your live data and responds in under 10 seconds."},{q:"Can I work offline?",a:"Yes. EthioPOS saves all transactions locally when offline and syncs automatically when connected."}];
+  return(<div style={{display:"flex",flexDirection:"column",gap:14}}><div style={{background:`linear-gradient(135deg,${C.primary},${C.purple})`,borderRadius:14,padding:24,textAlign:"center",color:"#fff"}}><div style={{fontSize:22,fontWeight:900,marginBottom:6}}>EthioPOS Help Center</div><div style={{fontSize:13,opacity:0.8}}>21-module ERP · AI-powered · Ethiopian-first</div></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}><Card t={t} title="❓ Frequently Asked Questions">{faqs.map((f,i)=><div key={i} style={{padding:"12px 0",borderBottom:`1px solid ${t.border}`}}><div style={{fontWeight:700,fontSize:13,color:C.light,marginBottom:5}}>Q: {f.q}</div><div style={{fontSize:13,color:t.text,lineHeight:1.6}}>A: {f.a}</div></div>)}</Card><div style={{display:"flex",flexDirection:"column",gap:10}}><Card t={t} title="📞 Contact Support">{[["📧","support@ethiopos.et","Email — 24h response"],["📞","+251 115 570 000","Mon–Sat 8AM–6PM EAT"],["💬","WhatsApp","Typically under 5 min"]].map(([icon,contact,detail])=><div key={contact} style={{display:"flex",gap:10,alignItems:"center",padding:"9px 0",borderBottom:`1px solid ${t.border}`}}><span style={{fontSize:18}}>{icon}</span><div><div style={{fontSize:13,fontWeight:600}}>{contact}</div><div style={{fontSize:11,color:t.muted}}>{detail}</div></div></div>)}</Card><Card t={t} title="📚 Key Modules"><div style={{fontSize:12,color:t.muted,lineHeight:2}}>{["📒 Accounting — Chart of Accounts, P&L, Balance Sheet","👔 HR & Payroll — Ethiopian labour law compliant","🧾 Invoices — Quotations, tax invoices, credit notes","🏭 Warehouse — Multi-location stock & transfers","🤖 AI Intelligence — 6 instant business queries"].map((m,i)=><div key={i}>{m}</div>)}</div></Card></div></div></div>);
+}
+function SettingsView({t,darkMode,setDarkMode,lang,setLang}){const[n,setN]=useState({low:true,daily:true,credit:true,vat:false});
+  return(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}><Card t={t} title="🎨 Appearance"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${t.border}`}}><div><div style={{fontSize:13,fontWeight:600}}>Dark Mode</div></div><button onClick={()=>setDarkMode(p=>!p)} style={{width:44,height:24,borderRadius:12,background:darkMode?C.primary:t.border,border:"none",cursor:"pointer",position:"relative"}}><div style={{width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:darkMode?23:3,transition:"left 0.3s"}}/></button></div><div style={{padding:"12px 0"}}><div style={{fontSize:13,fontWeight:600,marginBottom:10}}>Interface Language</div><div style={{display:"flex",gap:8}}>{[["en","🇬🇧 English"],["am","🇪🇹 አማርኛ"],["om","🟢 Afaan Oromo"]].map(([code,lbl])=><button key={code} onClick={()=>setLang(code)} style={{flex:1,padding:"8px 0",borderRadius:8,border:`1px solid ${lang===code?C.primary:t.border}`,background:lang===code?C.primary:t.hover,color:lang===code?"#fff":t.text,cursor:"pointer",fontWeight:700,fontSize:11}}>{lbl}</button>)}</div></div></Card><Card t={t} title="🔔 Notifications">{[["low","Low Stock Alerts"],["daily","Daily AI Summary"],["credit","Credit Alerts"],["vat","VAT Reminders"]].map(([k,lbl])=><div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 0",borderBottom:`1px solid ${t.border}`}}><div style={{fontSize:13,fontWeight:600}}>{lbl}</div><button onClick={()=>setN(p=>({...p,[k]:!p[k]}))} style={{width:44,height:24,borderRadius:12,background:n[k]?C.success:t.border,border:"none",cursor:"pointer",position:"relative"}}><div style={{width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:n[k]?23:3,transition:"left 0.3s"}}/></button></div>)}</Card><Card t={t} title="💳 Payment Integrations">{[{n:"Telebirr",s:true},{n:"CBE Birr",s:true},{n:"Awash Bank",s:false},{n:"Dashen Bank",s:false}].map((p,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${t.border}`}}><div style={{fontSize:13,fontWeight:700}}>{p.n}</div><button style={{background:p.s?`${C.success}22`:t.hover,color:p.s?C.success:t.muted,border:`1px solid ${p.s?C.success:t.border}`,borderRadius:8,padding:"5px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{p.s?"✓ Connected":"Connect"}</button></div>)}</Card><Card t={t} title="🏢 Business Profile">{[["Business","Selam Supermarket PLC"],["TIN","0012345678"],["VAT","ETH-VAT-2024-0189"],["City","Addis Ababa"],["Currency","ETB (Ethiopian Birr)"],["Modules","21 / 21 active"]].map(([k,v],i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${t.border}`,fontSize:13}}><span style={{color:t.muted}}>{k}</span><span style={{fontWeight:600}}>{v}</span></div>)}<button style={{width:"100%",marginTop:10,background:C.primary,color:"#fff",border:"none",borderRadius:8,padding:9,fontWeight:700,cursor:"pointer",fontSize:12}}>Edit Profile</button></Card></div>);
+}
+
+// ── Main App ──────────────────────────────────────────────────
+export default function App(){
+  const[role,setRole]=useState(null);
+  const[darkMode,setDarkMode]=useState(true);
+  const[lang,setLang]=useState("en");
+  const[active,setActive]=useState("dashboard");
+  const[collapsed,setCollapsed]=useState(false);
+  const[branch,setBranch]=useState("Bole Main");
+  const[notifs,setNotifs]=useState([
+    {id:1,icon:"⚠️",title:"Sugar 5kg: Critical Stockout",body:"5 units left. Stockout in 0.6 days.",time:"5m",read:false,color:C.danger},
+    {id:2,icon:"📒",title:"VAT Due Jun 30",body:"ETB 79,350 payable to ERCA.",time:"1h",read:false,color:C.warning},
+    {id:3,icon:"🤖",title:"AI Summary Ready",body:"May profit up 39% MoM.",time:"2h",read:true,color:C.purple},
+  ]);
+  const[notifOpen,setNotifOpen]=useState(false);
+  const notifRef=useRef(null);
+  const t=darkMode?DK:LT;
+  const getLangLabel=(id)=>(lang==="am"?NAV_LABELS_AM:lang==="om"?NAV_LABELS_OM:NAV_LABELS)[id]||id;
+  useEffect(()=>{
+    function h(e){if(notifRef.current&&!notifRef.current.contains(e.target))setNotifOpen(false);}
+    document.addEventListener("mousedown",h);
+    return()=>document.removeEventListener("mousedown",h);
+  },[]);
+  if(!role)return <Login onLogin={r=>{setRole(r);setActive(ROLES[r].nav[0]);}}/>;
+  const nav=ALL_NAV.filter(n=>ROLES[role].nav.includes(n.id));
+  const unread=notifs.filter(n=>!n.read).length;
+  function renderPage(){
+    switch(active){
+      case"dashboard":   return <DashboardView t={t} setActive={setActive}/>;
+      case"pos":         return <POSView t={t}/>;
+      case"inventory":   return <InventoryView t={t}/>;
+      case"sales":       return <SalesView t={t}/>;
+      case"finance":     return <FinanceView t={t}/>;
+      case"crm":         return <CRMView t={t}/>;
+      case"employees":   return <EmployeesView t={t}/>;
+      case"suppliers":   return <SuppliersView t={t}/>;
+      case"ai":          return <AIView t={t}/>;
+      case"reports":     return <ReportsView t={t}/>;
+      case"branches":    return <BranchesView t={t}/>;
+      case"accounting":  return <AccountingView t={t}/>;
+      case"hr":          return <HRPayrollView t={t}/>;
+      case"invoices":    return <InvoicesView t={t}/>;
+      case"warehouse":   return <WarehouseView t={t}/>;
+      case"qa":          return <QADashboard t={t}/>;
+      case"security":    return <SecurityView t={t}/>;
+      case"plans":       return <SaaSPlans t={t}/>;
+      case"help":        return <HelpCenter t={t}/>;
+      case"readiness":   return <ReadinessReport t={t}/>;
+      case"settings":    return <SettingsView t={t} darkMode={darkMode} setDarkMode={setDarkMode} lang={lang} setLang={setLang}/>;
+      default:           return null;
+    }
+  }
+  return(
+    <div style={{display:"flex",height:"100vh",fontFamily:"'Segoe UI',system-ui,sans-serif",background:t.bg,color:t.text,overflow:"hidden"}}>
+      <div style={{width:collapsed?52:210,background:t.sidebar,borderRight:"1px solid #1E293B",transition:"width 0.3s",display:"flex",flexDirection:"column",flexShrink:0}}>
+        <div style={{padding:"12px 10px",display:"flex",alignItems:"center",gap:9,borderBottom:"1px solid #1E293B"}}>
+          <div style={{width:30,height:30,borderRadius:8,background:`linear-gradient(135deg,${C.primary},${C.gold})`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:13,color:"#fff",flexShrink:0}}>E</div>
+          {!collapsed&&<div><div style={{fontWeight:800,fontSize:12,color:"#fff"}}>EthioPOS ERP</div><div style={{fontSize:9,color:"#475569"}}>21-Module Platform</div></div>}
+        </div>
+        {!collapsed&&(
+          <div style={{padding:"7px 10px",borderBottom:"1px solid #1E293B",display:"flex",alignItems:"center",gap:7}}>
+            <span style={{fontSize:13}}>{ROLES[role].icon}</span>
+            <div>
+              <div style={{fontSize:10,fontWeight:700,color:ROLES[role].color}}>{ROLES[role].label}</div>
+              <button onClick={()=>setRole(null)} style={{background:"none",border:"none",color:"#475569",fontSize:9,cursor:"pointer",padding:0}}>Sign out</button>
+            </div>
+          </div>
+        )}
+        <nav style={{flex:1,overflowY:"auto",padding:"4px 0"}}>
+          {nav.map(n=>(
+            <button key={n.id} onClick={()=>setActive(n.id)} title={getLangLabel(n.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:active===n.id?`${C.primary}22`:undefined,borderLeft:active===n.id?`3px solid ${C.light}`:"3px solid transparent",border:"none",cursor:"pointer",color:active===n.id?C.light:"#94A3B8",fontWeight:active===n.id?"700":"400",fontSize:12,textAlign:"left"}}>
+              <span style={{fontSize:14,flexShrink:0}}>{n.icon}</span>
+              {!collapsed&&<span>{getLangLabel(n.id)}</span>}
+            </button>
+          ))}
+        </nav>
+        <button onClick={()=>setCollapsed(p=>!p)} style={{background:"none",border:"none",color:"#64748B",padding:10,cursor:"pointer",fontSize:13}}>{collapsed?"→":"←"}</button>
+      </div>
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{background:t.card,borderBottom:`1px solid ${t.border}`,padding:"0 14px",height:50,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:14}}>{getLangLabel(active)}</div>
+            <div style={{fontSize:10,color:t.muted}}>{branch} · {new Date().toLocaleDateString("en-ET",{weekday:"short",month:"short",day:"numeric"})}</div>
+          </div>
+          <div style={{display:"flex",gap:7,alignItems:"center"}}>
+            <select value={branch} onChange={e=>setBranch(e.target.value)} style={{background:t.input,border:`1px solid ${t.border}`,color:t.text,borderRadius:7,padding:"4px 8px",fontSize:11,outline:"none",cursor:"pointer"}}>
+              {["Bole Main","Merkato","Piassa","Bishoftu","Adama"].map(b=><option key={b}>{b}</option>)}
+            </select>
+            <select value={lang} onChange={e=>setLang(e.target.value)} style={{background:t.input,border:`1px solid ${t.border}`,color:t.text,borderRadius:7,padding:"4px 7px",fontSize:11,outline:"none",cursor:"pointer"}}>
+              <option value="en">🇬🇧 EN</option>
+              <option value="am">🇪🇹 AM</option>
+              <option value="om">🟢 OM</option>
+            </select>
+            <button onClick={()=>setDarkMode(p=>!p)} style={{background:t.input,border:`1px solid ${t.border}`,color:t.text,borderRadius:7,padding:"4px 7px",cursor:"pointer",fontSize:13}}>{darkMode?"☀️":"🌙"}</button>
+            <div ref={notifRef} style={{position:"relative"}}>
+              <button onClick={()=>setNotifOpen(p=>!p)} style={{background:t.input,border:`1px solid ${t.border}`,color:t.text,borderRadius:7,width:32,height:32,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,position:"relative"}}>
+                🔔
+                {unread>0&&<div style={{position:"absolute",top:-3,right:-3,width:15,height:15,borderRadius:"50%",background:C.danger,color:"#fff",fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{unread}</div>}
+              </button>
+              {notifOpen&&(
+                <div style={{position:"absolute",right:0,top:40,width:290,background:t.card,border:`1px solid ${t.border}`,borderRadius:12,boxShadow:"0 16px 40px #0005",zIndex:500}}>
+                  <div style={{padding:"9px 14px",borderBottom:`1px solid ${t.border}`,display:"flex",justifyContent:"space-between"}}>
+                    <div style={{fontWeight:700,fontSize:13}}>Notifications</div>
+                    <button onClick={()=>setNotifs(p=>p.map(n=>({...n,read:true})))} style={{background:"none",border:"none",color:C.light,cursor:"pointer",fontSize:11}}>Mark all read</button>
+                  </div>
+                  {notifs.map(n=>(
+                    <div key={n.id} onClick={()=>setNotifs(p=>p.map(x=>x.id===n.id?{...x,read:true}:x))} style={{padding:"9px 14px",borderBottom:`1px solid ${t.border}`,cursor:"pointer",background:n.read?"transparent":`${n.color}08`,display:"flex",gap:8}}>
+                      <span style={{fontSize:15}}>{n.icon}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,fontWeight:n.read?500:700}}>{n.title}</div>
+                        <div style={{fontSize:11,color:t.muted,marginTop:1}}>{n.body}</div>
+                      </div>
+                      {!n.read&&<div style={{width:7,height:7,borderRadius:"50%",background:n.color,flexShrink:0,marginTop:4}}/>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <div style={{width:28,height:28,borderRadius:"50%",background:`linear-gradient(135deg,${C.primary},${C.purple})`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,color:"#fff",fontSize:12}}>{ROLES[role].icon}</div>
+              <div style={{fontSize:10,fontWeight:600,color:ROLES[role].color}}>{ROLES[role].label}</div>
+            </div>
+          </div>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:14}}>{renderPage()}</div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,709 @@
+openapi: 3.1.0
+info:
+  title: EthioPOS ERP API
+  description: |
+    ## EthioPOS — 21-Module ERP API for Ethiopian & African SMEs
+    
+    Full REST API covering POS, Inventory, Accounting, HR, Invoices,
+    Warehouse, CRM, AI Intelligence, and more.
+    
+    ### Authentication
+    All endpoints (except `/auth/*` and payment webhooks) require a
+    JWT Bearer token obtained from `POST /auth/login`.
+    
+    ### Ethiopian Compliance
+    - Currency: **ETB (Ethiopian Birr)**
+    - VAT: **15%** per ERCA regulations
+    - Payroll: Ethiopian Labour Proclamation No. 377/2003
+    - Pension: Employee **7%**, Employer **11%**
+    
+    ### Multi-tenancy
+    Every request is scoped to the authenticated user's `tenant_id`.
+    No cross-tenant data leakage is possible.
+  version: 1.0.0
+  contact:
+    name: EthioPOS Support
+    email: support@ethiopos.et
+    url: https://docs.ethiopos.et
+  license:
+    name: Proprietary
+    url: https://ethiopos.et/terms
+
+servers:
+  - url: https://api.ethiopos.et/api/v1
+    description: Production
+  - url: https://staging.api.ethiopos.et/api/v1
+    description: Staging
+  - url: http://localhost:4000/api/v1
+    description: Local Development
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Auth          
+  - name: Products      
+  - name: Sales         
+  - name: Customers     
+  - name: Accounting    
+  - name: HR            
+  - name: Invoices      
+  - name: Warehouse     
+  - name: Suppliers     
+  - name: Branches      
+  - name: Reports       
+  - name: AI            
+  - name: Payments      
+  - name: Notifications 
+  - name: Security      
+
+# ── PATHS ────────────────────────────────────────────────────
+paths:
+
+  # ── Health ──────────────────────────────────────────────────
+  /health:
+    get:
+      summary: API health check
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              example: { status: ok, timestamp: '2026-05-29T08:00:00Z', version: '1.0.0' }
+
+  # ── Auth ─────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email/phone + password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, password]
+              properties:
+                identifier: { type: string, example: 'cashier@selamsupermarket.et' }
+                password:   { type: string, example: 'SecurePass1!' }
+      responses:
+        '200':
+          description: Successful login or MFA required
+          content:
+            application/json:
+              examples:
+                success:
+                  value:
+                    access_token:  eyJhbGci...
+                    refresh_token: eyJhbGci...
+                    role:          cashier
+                    tenant_id:     uuid
+                mfa_required:
+                  value:
+                    mfa_required:  true
+                    partial_token: eyJhbGci...
+        '401':
+          description: Invalid credentials
+
+  /auth/login/pin:
+    post:
+      tags: [Auth]
+      summary: Fast PIN login (for POS cashiers)
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, pin]
+              properties:
+                userId: { type: string, format: uuid }
+                pin:    { type: string, minLength: 4, maxLength: 6, example: '4567' }
+      responses:
+        '200':
+          description: Tokens returned
+        '401':
+          description: Invalid PIN
+
+  /auth/mfa/verify:
+    post:
+      tags: [Auth]
+      summary: Verify TOTP OTP for MFA
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [partial_token, otp]
+              properties:
+                partial_token: { type: string }
+                otp:           { type: string, minLength: 6, maxLength: 6, example: '123456' }
+      responses:
+        '200': { description: Full tokens returned }
+        '401': { description: Invalid OTP }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '200': { description: New access token }
+        '401': { description: Refresh token expired }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Invalidate current session
+      responses:
+        '200': { description: Session revoked }
+
+  # ── Products / Inventory ─────────────────────────────────────
+  /products:
+    get:
+      tags: [Products]
+      summary: List products (with optional filters)
+      parameters:
+        - { name: search,   in: query, schema: { type: string }, description: 'Search by name, SKU, or barcode' }
+        - { name: branchId, in: query, schema: { type: string, format: uuid } }
+        - { name: status,   in: query, schema: { type: string, enum: [ok, low, critical] } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: page,     in: query, schema: { type: integer, default: 1 } }
+        - { name: limit,    in: query, schema: { type: integer, default: 50, maximum: 200 } }
+      responses:
+        '200':
+          description: Product list with stock levels
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Product' }
+
+    post:
+      tags: [Products]
+      summary: Create new product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateProductDto' }
+      responses:
+        '201': { description: Product created }
+        '400': { description: Validation error }
+
+  /products/{id}:
+    get:
+      tags: [Products]
+      summary: Get product by ID
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Product with full stock breakdown by branch }
+        '404': { description: Not found }
+
+    patch:
+      tags: [Products]
+      summary: Update product
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateProductDto' }
+      responses:
+        '200': { description: Updated }
+
+    delete:
+      tags: [Products]
+      summary: Soft-delete product (archived, not physically deleted)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Archived }
+
+  /products/{id}/barcode:
+    get:
+      tags: [Products]
+      summary: Lookup product by barcode
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, description: 'Barcode or SKU string' }
+      responses:
+        '200': { description: Product found }
+        '404': { description: Barcode not registered }
+
+  # ── Sales / POS ──────────────────────────────────────────────
+  /sales:
+    get:
+      tags: [Sales]
+      summary: List sales with filters
+      parameters:
+        - { name: branchId,   in: query, schema: { type: string, format: uuid } }
+        - { name: customerId, in: query, schema: { type: string, format: uuid } }
+        - { name: startDate,  in: query, schema: { type: string, format: date } }
+        - { name: endDate,    in: query, schema: { type: string, format: date } }
+        - { name: status,     in: query, schema: { type: string, enum: [paid, outstanding, overdue] } }
+        - { name: page,       in: query, schema: { type: integer, default: 1 } }
+      responses:
+        '200': { description: Paginated sales list }
+
+    post:
+      tags: [Sales]
+      summary: Create sale (POS checkout)
+      description: |
+        Creates a sale, deducts stock, calculates 15% VAT, updates
+        customer loyalty points, and auto-journals the accounting entries.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items, paymentMethod]
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [product_id, quantity]
+                    properties:
+                      product_id: { type: string, format: uuid }
+                      quantity:   { type: integer, minimum: 1 }
+                paymentMethod:
+                  type: string
+                  enum: [cash, telebirr, cbe_birr, credit, bank_transfer, cheque]
+                customerId:     { type: string, format: uuid }
+                discountAmount: { type: number, minimum: 0, default: 0 }
+                vatApplicable:  { type: boolean, default: true }
+            example:
+              items:
+                - { product_id: 'uuid', quantity: 2 }
+                - { product_id: 'uuid', quantity: 1 }
+              paymentMethod: telebirr
+              customerId: uuid
+      responses:
+        '201':
+          description: Sale created with invoice
+          content:
+            application/json:
+              example:
+                id:         uuid
+                invoice_no: INV-0241
+                subtotal:   3838.00
+                vat_amount: 575.70
+                total:      4413.70
+                status:     paid
+
+  /sales/daily-summary:
+    get:
+      tags: [Sales]
+      summary: Daily sales KPIs for dashboard
+      parameters:
+        - { name: date,     in: query, schema: { type: string, format: date }, example: '2026-05-29' }
+        - { name: branchId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Daily summary
+          content:
+            application/json:
+              example:
+                transaction_count: 342
+                total_revenue:     184250.00
+                total_vat:         24750.00
+                avg_basket:        538.74
+
+  # ── Accounting ────────────────────────────────────────────────
+  /accounting/pl:
+    get:
+      tags: [Accounting]
+      summary: Profit & Loss statement
+      parameters:
+        - { name: startDate, in: query, required: true, schema: { type: string, format: date } }
+        - { name: endDate,   in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: P&L data
+          content:
+            application/json:
+              example:
+                revenue:       1243500.00
+                expenses:      980400.00
+                gross_profit:  495300.00
+                net_profit:    263100.00
+                net_margin:    '21.2%'
+                vat_payable:   79350.00
+
+  /accounting/balance-sheet:
+    get:
+      tags: [Accounting]
+      summary: Balance sheet as of a date
+      parameters:
+        - { name: asOf, in: query, schema: { type: string, format: date } }
+      responses:
+        '200': { description: Full balance sheet with assets, liabilities, equity }
+
+  /accounting/vat:
+    get:
+      tags: [Accounting]
+      summary: VAT summary for ERCA filing
+      parameters:
+        - { name: period, in: query, required: true, schema: { type: string }, example: '2026-05', description: 'YYYY-MM format' }
+      responses:
+        '200':
+          description: VAT summary
+          content:
+            application/json:
+              example:
+                period:         '2026-05'
+                taxable_sales:  529000.00
+                vat_rate:       '15%'
+                vat_collected:  79350.00
+                vat_payable:    79350.00
+                filing_due:     '2026-06-30'
+
+  /accounting/journal:
+    get:
+      tags: [Accounting]
+      summary: List journal entries
+      parameters:
+        - { name: startDate, in: query, schema: { type: string, format: date } }
+        - { name: endDate,   in: query, schema: { type: string, format: date } }
+      responses:
+        '200': { description: Journal entries with debit/credit lines }
+
+    post:
+      tags: [Accounting]
+      summary: Create manual journal entry
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description, lines]
+              properties:
+                description: { type: string }
+                entry_date:  { type: string, format: date }
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      account_code: { type: string, example: '1000' }
+                      debit:        { type: number }
+                      credit:       { type: number }
+      responses:
+        '201': { description: Journal entry posted }
+
+  /accounting/chart-of-accounts:
+    get:
+      tags: [Accounting]
+      summary: List all accounts in the Chart of Accounts
+      responses:
+        '200': { description: Full CoA with balances }
+
+  # ── HR & Payroll ──────────────────────────────────────────────
+  /hr/attendance:
+    get:
+      tags: [HR]
+      summary: Get attendance records
+      parameters:
+        - { name: date,       in: query, schema: { type: string, format: date } }
+        - { name: branchId,   in: query, schema: { type: string, format: uuid } }
+        - { name: employeeId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Attendance list }
+
+  /hr/attendance/clock-in:
+    post:
+      tags: [HR]
+      summary: Employee clock in
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [employeeId], properties: { employeeId: { type: string, format: uuid } } }
+      responses:
+        '200': { description: Clocked in with timestamp }
+
+  /hr/attendance/clock-out:
+    post:
+      tags: [HR]
+      summary: Employee clock out
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [employeeId], properties: { employeeId: { type: string, format: uuid } } }
+      responses:
+        '200': { description: Clocked out, hours calculated }
+
+  /hr/leave:
+    get:
+      tags: [HR]
+      summary: List leave requests
+      responses:
+        '200': { description: Leave requests with status }
+
+    post:
+      tags: [HR]
+      summary: Submit leave request
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [employeeId, leaveType, startDate, endDate, reason]
+              properties:
+                employeeId: { type: string, format: uuid }
+                leaveType:  { type: string, enum: [Annual, Sick, Maternity, Unpaid] }
+                startDate:  { type: string, format: date }
+                endDate:    { type: string, format: date }
+                reason:     { type: string }
+      responses:
+        '201': { description: Leave request submitted }
+
+  /hr/leave/{id}/approve:
+    patch:
+      tags: [HR]
+      summary: Approve or reject leave request
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [approved, rejected] }
+      responses:
+        '200': { description: Status updated }
+
+  /hr/payroll/run:
+    post:
+      tags: [HR]
+      summary: Run monthly payroll (Ethiopian labour law compliant)
+      description: |
+        Calculates payroll per Ethiopian Labour Proclamation 377/2003:
+        - Employee pension: 7% of basic salary
+        - Employer pension: 11% of basic salary
+        - Income tax: progressive brackets (0–35%)
+        - Net pay = Gross − Employee pension − Income tax
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [period]
+              properties:
+                period: { type: string, example: '2026-05', description: 'YYYY-MM' }
+      responses:
+        '201':
+          description: Payroll run created
+          content:
+            application/json:
+              example:
+                run_id:       uuid
+                period:       '2026-05'
+                items_count:  47
+                total_gross:  620000.00
+                total_pension:43400.00
+                total_tax:    12400.00
+                total_net:    564200.00
+
+  # ── AI Intelligence ───────────────────────────────────────────
+  /ai/query:
+    post:
+      tags: [AI]
+      summary: AI Business Intelligence query
+      description: |
+        Generates AI-powered business insights using live data.
+        Built-in query types: `top_products`, `credit_debt`, `reorder`,
+        `profit`, `forecast`, `executive`. Or pass a custom question.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [queryType]
+              properties:
+                queryType:
+                  type: string
+                  enum: [top_products, credit_debt, reorder, profit, forecast, executive]
+                  example: top_products
+                customPrompt:
+                  type: string
+                  description: Custom question (used when queryType is not a preset)
+                branchId:
+                  type: string
+                  format: uuid
+                  description: Scope analysis to a specific branch
+      responses:
+        '200':
+          description: AI analysis result
+          content:
+            application/json:
+              example:
+                result: |
+                  **Top 3 Products by Revenue:**
+                  1. Cooking Oil 5L — ETB 46,000 (37.5% of total)
+                  2. Sugar 5kg — ETB 38,160 (31.1%)
+                  3. Rice 25kg — ETB 35,040 (28.6%)
+                  
+                  **Recommendations:**
+                  1. Double Cooking Oil 5L stock — highest revenue, fast turnover
+                  2. Negotiate Sugar bulk discount with Ethio Sugar Corp
+                  3. Introduce 10L Cooking Oil variant for wholesale buyers
+                response_ms: 3240
+
+  # ── Payments ──────────────────────────────────────────────────
+  /payments/initiate:
+    post:
+      tags: [Payments]
+      summary: Initiate Telebirr or CBE Birr payment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [method, amount, orderId, description, customerPhone]
+              properties:
+                method:        { type: string, enum: [telebirr, cbe_birr] }
+                amount:        { type: number, example: 4413.70 }
+                orderId:       { type: string, example: 'INV-0241' }
+                description:   { type: string, example: 'Purchase at EthioPOS Bole Main' }
+                customerPhone: { type: string, example: '0911234567' }
+      responses:
+        '200':
+          description: Payment initiated
+          content:
+            application/json:
+              examples:
+                telebirr:
+                  value: { success: true, toPayUrl: 'https://toPayUrl...', tradeNo: 'TBR2024...', outTradeNo: 'INV-0241' }
+                cbe_birr:
+                  value: { success: true, qrCode: 'QR_BASE64...', deepLink: 'cbebirr://pay?...', sessionId: 'uuid' }
+
+  /payments/webhook/telebirr:
+    post:
+      tags: [Payments]
+      summary: Telebirr payment callback (webhook)
+      description: Called by Ethio Telecom servers when payment is completed
+      security: []
+      responses:
+        '200': { description: Webhook acknowledged }
+
+  /payments/webhook/cbe_birr:
+    post:
+      tags: [Payments]
+      summary: CBE Birr payment callback (webhook)
+      security: []
+      responses:
+        '200': { description: Webhook acknowledged }
+
+  # ── Reports ───────────────────────────────────────────────────
+  /reports/sales:
+    get:
+      tags: [Reports]
+      summary: Generate sales report (PDF or Excel)
+      parameters:
+        - { name: startDate, in: query, required: true, schema: { type: string, format: date } }
+        - { name: endDate,   in: query, required: true, schema: { type: string, format: date } }
+        - { name: format,    in: query, schema: { type: string, enum: [pdf, excel], default: pdf } }
+        - { name: branchId,  in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: File download
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+
+  /reports/vat:
+    get:
+      tags: [Reports]
+      summary: Generate ERCA-compliant VAT report
+      parameters:
+        - { name: period, in: query, required: true, schema: { type: string }, example: '2026-05' }
+        - { name: format, in: query, schema: { type: string, enum: [pdf, excel] } }
+      responses:
+        '200': { description: ERCA VAT report file }
+
+  /reports/payroll:
+    get:
+      tags: [Reports]
+      summary: Monthly payroll report with payslips
+      parameters:
+        - { name: period, in: query, required: true, schema: { type: string }, example: '2026-05' }
+        - { name: format, in: query, schema: { type: string, enum: [pdf, excel] } }
+      responses:
+        '200': { description: Payroll report file }
+
+# ── COMPONENTS / SCHEMAS ─────────────────────────────────────
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from /auth/login. Expires in 15 minutes.
+
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:           { type: string, format: uuid }
+        sku:          { type: string, example: 'P001' }
+        barcode:      { type: string, example: '8001234567890' }
+        name:         { type: string, example: 'Cooking Oil 5L' }
+        category:     { type: string, example: 'Grocery' }
+        unit_price:   { type: number, example: 250.00 }
+        unit_cost:    { type: number, example: 190.00 }
+        reorder_point:{ type: integer, example: 20 }
+        stock:        { type: integer, description: 'Total across all branches', example: 48 }
+        status:       { type: string, enum: [ok, low, critical] }
+        supplier:     { $ref: '#/components/schemas/Supplier' }
+
+    CreateProductDto:
+      type: object
+      required: [sku, name, unit_price, unit_cost]
+      properties:
+        sku:           { type: string }
+        barcode:       { type: string }
+        name:          { type: string }
+        category:      { type: string }
+        unit_price:    { type: number, minimum: 0 }
+        unit_cost:     { type: number, minimum: 0 }
+        reorder_point: { type: integer, minimum: 0 }
+        supplier_id:   { type: string, format: uuid }
+
+    Supplier:
+      type: object
+      properties:
+        id:      { type: string, format: uuid }
+        name:    { type: string }
+        contact: { type: string }
+        phone:   { type: string }
+        city:    { type: string }
+        rating:  { type: integer, minimum: 0, maximum: 5 }
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode: { type: integer }
+        message:    { type: string }
+        error:      { type: string }
+      example:
+        statusCode: 400
+        message:    Validation failed
+        error:      Bad Request

@@ -1,0 +1,319 @@
+# ============================================================
+# EthioPOS — GitHub Actions CI/CD Pipeline
+# Triggers: push to main → test → build → deploy to production
+# ============================================================
+
+name: EthioPOS CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_API: ghcr.io/${{ github.repository }}/api
+  IMAGE_FE:  ghcr.io/${{ github.repository }}/frontend
+  NODE_VERSION: '20'
+
+# ─── JOB 1: Lint & Type-check ───────────────────────────────
+jobs:
+  lint:
+    name: 🔍 Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}', cache: npm }
+
+      - name: Install backend deps
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Lint backend
+        working-directory: ./backend
+        run: npm run lint
+
+      - name: Type check backend
+        working-directory: ./backend
+        run: npm run build --no-emit || npx tsc --noEmit
+
+      - name: Install frontend deps
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: ./frontend
+        run: npm run lint
+
+# ─── JOB 2: Unit & Integration Tests ────────────────────────
+  test:
+    name: 🧪 Test Suite
+    runs-on: ubuntu-latest
+    needs: lint
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB:       ethiopos_test
+          POSTGRES_USER:     ethiopos
+          POSTGRES_PASSWORD: test_password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}', cache: npm }
+
+      - name: Install backend deps
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Run unit tests
+        working-directory: ./backend
+        run: npm run test -- --coverage --passWithNoTests
+        env:
+          NODE_ENV:   test
+          DB_HOST:    localhost
+          DB_PORT:    5432
+          DB_USER:    ethiopos
+          DB_PASS:    test_password
+          DB_NAME:    ethiopos_test
+          REDIS_URL:  redis://localhost:6379
+          JWT_SECRET: test_secret_32chars_minimum_length
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_TEST }}
+
+      - name: Run e2e tests
+        working-directory: ./backend
+        run: npm run test:e2e
+        env:
+          NODE_ENV:  test
+          DB_HOST:   localhost
+          DB_PORT:   5432
+          DB_USER:   ethiopos
+          DB_PASS:   test_password
+          DB_NAME:   ethiopos_test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./backend/coverage
+          flags: backend
+
+      - name: Ethiopian Tax Calculator Tests
+        working-directory: ./backend
+        run: npx jest --testPathPattern="ethiopian-tax" --verbose
+
+# ─── JOB 3: Security Scan ───────────────────────────────────
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run npm audit (backend)
+        working-directory: ./backend
+        run: npm audit --audit-level=high
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'EthioPOS'
+          path: '.'
+          format: 'HTML'
+
+# ─── JOB 4: Build Docker Images ─────────────────────────────
+  build:
+    name: 🐳 Build & Push Images
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_API }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build & push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          target: production
+          push: true
+          tags: ${{ env.IMAGE_FE }}:latest,${{ env.IMAGE_FE }}:sha-${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.ethiopos.et/api/v1
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+# ─── JOB 5: Deploy to Staging ───────────────────────────────
+  deploy-staging:
+    name: 🚀 Deploy → Staging
+    runs-on: ubuntu-latest
+    needs: build
+    environment: staging
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to staging via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host:     ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key:      ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/ethiopos
+            git pull origin main
+            echo "${{ secrets.STAGING_ENV }}" > .env
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --no-build
+            docker compose -f docker-compose.prod.yml exec api npx typeorm migration:run
+            docker system prune -f
+
+      - name: Run smoke tests on staging
+        run: |
+          sleep 15
+          curl -f https://staging.ethiopos.et/api/v1/health || exit 1
+          echo "✅ Staging health check passed"
+
+# ─── JOB 6: Deploy to Production ────────────────────────────
+  deploy-production:
+    name: 🌍 Deploy → Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    environment: production      # requires manual approval in GitHub Environments
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to production via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host:     ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key:      ${{ secrets.PROD_SSH_KEY }}
+          script: |
+            cd /opt/ethiopos
+            git pull origin main
+            echo "${{ secrets.PROD_ENV }}" > .env
+
+            # Zero-downtime: bring up new containers before stopping old
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --scale api=4 --no-recreate
+            docker compose -f docker-compose.prod.yml exec api npx typeorm migration:run
+            docker compose -f docker-compose.prod.yml up -d --scale api=2
+            docker system prune -f
+
+            echo "✅ Production deployment complete"
+
+      - name: Production smoke tests
+        run: |
+          sleep 20
+          curl -f https://api.ethiopos.et/api/v1/health || exit 1
+          curl -f https://app.ethiopos.et || exit 1
+          echo "✅ Production health checks passed"
+
+      - name: Notify Slack on success
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "✅ EthioPOS deployed to production — SHA: ${{ github.sha }}",
+              "channel": "#deployments"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Notify Slack on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "🚨 EthioPOS production deployment FAILED — SHA: ${{ github.sha }}",
+              "channel": "#deployments"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+# ─── scripts/backup.sh ──────────────────────────────────────
+# #!/bin/sh
+# TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+# FILENAME="ethiopos_backup_${TIMESTAMP}.sql.gz"
+# pg_dump -h $DB_HOST -U $DB_USER $DB_NAME | gzip > /tmp/$FILENAME
+# aws s3 cp /tmp/$FILENAME s3://$S3_BUCKET/backups/$FILENAME \
+#   --region $AWS_REGION \
+#   --server-side-encryption AES256
+# rm /tmp/$FILENAME
+# echo "Backup completed: $FILENAME"
+# # Retention: delete backups older than 90 days
+# aws s3 ls s3://$S3_BUCKET/backups/ | \
+#   awk '{print $4}' | \
+#   while read key; do
+#     created=$(aws s3api head-object --bucket $S3_BUCKET --key backups/$key \
+#       --query LastModified --output text)
+#     age=$(( ($(date +%s) - $(date -d "$created" +%s)) / 86400 ))
+#     [ $age -gt 90 ] && aws s3 rm s3://$S3_BUCKET/backups/$key
+#   done

@@ -1,0 +1,351 @@
+import { useState, useEffect, useRef } from "react";
+
+const C = { primary:"#1E40AF", light:"#3B82F6", gold:"#F59E0B", success:"#10B981", purple:"#8B5CF6", rose:"#F43F5E", teal:"#14B8A6" };
+
+const LANG = {
+  en: {
+    nav:      ["Features","Pricing","Testimonials","Contact"],
+    hero1:    "Run Your Ethiopian Business",
+    hero2:    "With AI-Powered ERP",
+    heroSub:  "Point of Sale · Inventory · Accounting · HR · AI Analytics — all in one platform built for Ethiopian SMEs. Works in Amharic. Accepts Telebirr & CBE Birr. ERCA VAT compliant.",
+    heroBtn:  "Start Free 14-Day Trial",
+    heroBtn2: "Watch Demo",
+    stats:    [["21","Modules"],["ETB 299","Starting price/mo"],["15%","VAT auto-calculated"],["3","Languages supported"]],
+    feat:     "Everything your business needs",
+    featSub:  "One platform replacing 5+ tools. Built in Ethiopia, for Ethiopia.",
+    price:    "Simple, transparent pricing",
+    priceSub: "Billed in ETB. No hidden fees. Cancel anytime.",
+    trial:    "Start Free Trial",
+    testi:    "Trusted by Ethiopian businesses",
+    cta:      "Ready to grow your business?",
+    ctaSub:   "Join 500+ Ethiopian businesses already using EthioPOS",
+    ctaBtn:   "Get Started Free",
+    footer:   "EthioPOS — ኢትዮፒያ ለተሰሩ ቢዝነሶች",
+  },
+  am: {
+    nav:      ["ባህሪያት","ዋጋ","ምስክርነቶች","ያግኙን"],
+    hero1:    "የኢትዮጵያ ቢዝነስዎን",
+    hero2:    "በAI-ERP ያስተዳድሩ",
+    heroSub:  "ሽያጭ · እቃ ክምችት · ሂሳብ · ሠራተኞች · AI ትንታኔ — ለኢትዮጵያ SME ቢዝነሶች በተሰራ አንድ ፕላትፎርም። ቴሌብር እና CBE ብር ይቀበላል። ‹ ERA VAT ተጣጣሚ›።",
+    heroBtn:  "14 ቀን ነጻ ሙከራ ጀምር",
+    heroBtn2: "ዴሞ ይዩ",
+    stats:    [["21","ሞዱሎች"],["ETB 299","የጀማሪ ዋጋ/ወር"],["15%","ቫት አውቶ-ይሰላል"],["3","ቋንቋዎች"]],
+    feat:     "ቢዝነስዎ የሚፈልገው ሁሉ",
+    featSub:  "5+ መሳሪያዎችን የሚተካ አንድ ፕላትፎርም። በኢትዮጵያ ተሰርቶ ለኢትዮጵያ።",
+    price:    "ቀላል፣ ግልፅ ዋጋ",
+    priceSub: "በETB ይከፈላል። ምንም ደበቀ ክፍያ የለም።",
+    trial:    "ነጻ ሙከራ ጀምር",
+    testi:    "ኢትዮጵያ ቢዝነሶች ይጠቀሙናል",
+    cta:      "ቢዝነስዎን ለማሳደግ ዝግጁ ነዎት?",
+    ctaSub:   "500+ ኢትዮጵያ ቢዝነሶች EthioPOS ይጠቀማሉ",
+    ctaBtn:   "ነጻ ጀምር",
+    footer:   "EthioPOS — ኢትዮፒያ ለተሰሩ ቢዝነሶች",
+  },
+};
+
+const FEATURES = [
+  { icon:"🛒", title:"Point of Sale",   titleAm:"ሽያጭ ስርዓት",        desc:"Barcode scanning, Telebirr & CBE Birr payments, VAT receipts, offline mode — process sales even without internet.",    color:C.light },
+  { icon:"📦", title:"Inventory",       titleAm:"እቃ ክምችት",          desc:"Real-time stock tracking across all branches, automatic reorder alerts, supplier management, and AI demand forecasting.", color:C.success },
+  { icon:"📒", title:"Accounting",      titleAm:"ሂሳብ አያያዝ",         desc:"Full double-entry bookkeeping, P&L, Balance Sheet, Cash Flow, and ERCA-compliant VAT reports — no accountant needed.",   color:C.purple },
+  { icon:"👔", title:"HR & Payroll",    titleAm:"ሠራተኞችና ደሞዝ",      desc:"Ethiopian Labour Law compliant payroll with 7% employee pension, progressive income tax, attendance, and leave management.", color:C.gold },
+  { icon:"🤖", title:"AI Intelligence", titleAm:"AI ትንታኔ",           desc:"Ask your business anything: top products, cash flow forecast, executive summary, reorder plan — answers in under 10 seconds.", color:C.rose },
+  { icon:"🏪", title:"Multi-Branch",    titleAm:"ብዙ ቅርንጫፎች",       desc:"Manage up to unlimited branches from one dashboard. Real-time inter-branch stock transfers, consolidated reports.",       color:C.teal },
+  { icon:"🧾", title:"Invoices & Quotes",titleAm:"ደረሰኞች",           desc:"Tax invoices, quotations, credit notes, and discount rules. Convert quotes to invoices in one click.",                       color:C.primary },
+  { icon:"🏭", title:"Warehouse",       titleAm:"መጋዘን",              desc:"Multi-warehouse stock management, transfer requests, inventory adjustments, and full audit trail.",                           color:"#64748B" },
+];
+
+const PLANS = [
+  { name:"Starter", nameAm:"ጀማሪ", price:299, annual:249, color:C.teal, popular:false,
+    features:["1 branch","2 users","Basic POS","50 SKUs","Sales reports","Telebirr payments","Email support"] },
+  { name:"Professional", nameAm:"ፕሮፌሽናል", price:799, annual:649, color:C.primary, popular:true,
+    features:["5 branches","10 users","Full POS + Barcode","Unlimited inventory","AI Analytics","CRM & Loyalty","Accounting module","HR & Payroll","VAT ERCA reports","All payments","Priority support"] },
+  { name:"Enterprise", nameAm:"ኢንተርፕራይዝ", price:1999, annual:1599, color:C.gold, popular:false,
+    features:["Unlimited branches","Unlimited users","Full ERP (21 modules)","Custom AI training","API access","Dedicated manager","99.9% SLA uptime","On-site training"] },
+];
+
+const TESTIMONIALS = [
+  { name:"Hiwot Bekele", role:"Owner, Bole Supermarket", city:"Addis Ababa", stars:5, text:"Before EthioPOS, I used Excel and lost track of stock constantly. Now I know exactly what to reorder and my VAT is automatic. Saved me 3 hours every day.", avatar:"HB" },
+  { name:"Dagmawi Alemu", role:"Manager, Piassa Pharmacy", city:"Addis Ababa", stars:5, text:"The AI tells me which drugs are running low before I even check. And the Amharic interface means my cashiers needed zero training.", avatar:"DA" },
+  { name:"Birtukan Tadesse", role:"Owner, Merkato Wholesale", city:"Merkato", stars:5, text:"Managing 3 branches and 40 employees was chaos. EthioPOS gives me one screen for everything. The payroll module saves ETB 8,000/month on accounting fees.", avatar:"BT" },
+  { name:"Yared Haile", role:"Director, Adama Hardware", city:"Adama", stars:5, text:"The AI executive report every Monday morning is like having a CFO. It tells me exactly where my money is going and what to do about it.", avatar:"YH" },
+];
+
+const useCountUp = (end, duration = 2000, start = false) => {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!start) return;
+    let s = 0; const step = end / (duration / 16);
+    const t = setInterval(() => { s = Math.min(s + step, end); setCount(Math.round(s)); if (s >= end) clearInterval(t); }, 16);
+    return () => clearInterval(t);
+  }, [start, end, duration]);
+  return count;
+};
+
+function StatCard({ value, label, start }) {
+  const isNum = !isNaN(parseInt(value));
+  const num = useCountUp(isNum ? parseInt(value) : 0, 1500, start);
+  const prefix = value.includes("ETB") ? "ETB " : "";
+  const suffix = value.includes("+") ? "+" : value.includes("%") ? "%" : "";
+  return (
+    <div style={{ textAlign:"center" }}>
+      <div style={{ fontSize:36, fontWeight:900, color:"#fff" }}>{prefix}{isNum ? num : value}{suffix}</div>
+      <div style={{ fontSize:13, color:"rgba(255,255,255,0.7)", marginTop:4 }}>{label}</div>
+    </div>
+  );
+}
+
+export default function LandingPage() {
+  const [lang, setLang]     = useState("en");
+  const [billing, setBilling]= useState("monthly");
+  const [statsVis, setStatsVis] = useState(false);
+  const [activeFeature, setActiveFeature] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const statsRef = useRef(null);
+  const T = LANG[lang];
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setStatsVis(true); }, { threshold: 0.3 });
+    if (statsRef.current) obs.observe(statsRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => setActiveFeature(p => (p + 1) % FEATURES.length), 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const scroll = (id) => { document.getElementById(id)?.scrollIntoView({ behavior:"smooth" }); setMenuOpen(false); };
+
+  return (
+    <div style={{ fontFamily:"'Segoe UI',system-ui,sans-serif", background:"#0F172A", color:"#F1F5F9", overflowX:"hidden" }}>
+
+      {/* ── Navbar ───────────────────────────────────────────── */}
+      <nav style={{ position:"sticky", top:0, zIndex:100, background:"rgba(15,23,42,0.92)", backdropFilter:"blur(12px)", borderBottom:"1px solid #1E293B", padding:"0 24px", height:60, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:34, height:34, borderRadius:9, background:`linear-gradient(135deg,${C.primary},${C.gold})`, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, fontSize:16, color:"#fff" }}>E</div>
+          <span style={{ fontWeight:900, fontSize:16, color:"#fff" }}>EthioPOS</span>
+        </div>
+        <div style={{ display:"flex", gap:24, alignItems:"center" }}>
+          {T.nav.map((item, i) => (
+            <button key={i} onClick={() => scroll(["features","pricing","testimonials","contact"][i])}
+              style={{ background:"none", border:"none", color:"#94A3B8", cursor:"pointer", fontSize:14, fontWeight:500, display:"none" }}
+              className="nav-link"
+            >{item}</button>
+          ))}
+          <div style={{ display:"flex", gap:6 }}>
+            {["en","am"].map(l => (
+              <button key={l} onClick={() => setLang(l)} style={{ background:lang===l?"#1E40AF":"transparent", border:"1px solid #334155", color:lang===l?"#fff":"#94A3B8", borderRadius:6, padding:"4px 10px", cursor:"pointer", fontSize:12, fontWeight:600 }}>
+                {l==="en"?"🇬🇧 EN":"🇪🇹 AM"}
+              </button>
+            ))}
+          </div>
+          <a href="/auth/login" style={{ background:`linear-gradient(90deg,${C.primary},${C.light})`, color:"#fff", borderRadius:8, padding:"8px 18px", fontWeight:700, fontSize:13, textDecoration:"none" }}>
+            {T.heroBtn}
+          </a>
+        </div>
+      </nav>
+
+      {/* ── Hero ─────────────────────────────────────────────── */}
+      <section style={{ minHeight:"90vh", display:"flex", alignItems:"center", justifyContent:"center", textAlign:"center", padding:"60px 24px", position:"relative", overflow:"hidden" }}>
+        {/* Background gradient orbs */}
+        <div style={{ position:"absolute", top:-200, left:-200, width:600, height:600, borderRadius:"50%", background:`radial-gradient(circle, ${C.primary}33, transparent)`, pointerEvents:"none" }}/>
+        <div style={{ position:"absolute", bottom:-200, right:-100, width:500, height:500, borderRadius:"50%", background:`radial-gradient(circle, ${C.purple}33, transparent)`, pointerEvents:"none" }}/>
+        <div style={{ maxWidth:780, position:"relative" }}>
+          <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:"#1E293B", border:"1px solid #334155", borderRadius:20, padding:"6px 16px", marginBottom:24, fontSize:12, color:C.gold, fontWeight:700 }}>
+            🇪🇹 Built in Ethiopia · For Ethiopian SMEs
+          </div>
+          <h1 style={{ fontSize:"clamp(36px,6vw,72px)", fontWeight:900, lineHeight:1.1, margin:"0 0 16px" }}>
+            <span style={{ color:"#F1F5F9" }}>{T.hero1}</span><br/>
+            <span style={{ background:`linear-gradient(90deg,${C.light},${C.purple},${C.gold})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>{T.hero2}</span>
+          </h1>
+          <p style={{ fontSize:18, color:"#94A3B8", lineHeight:1.7, marginBottom:36, maxWidth:620, margin:"0 auto 36px" }}>{T.heroSub}</p>
+          <div style={{ display:"flex", gap:12, justifyContent:"center", flexWrap:"wrap" }}>
+            <a href="/auth/login" style={{ background:`linear-gradient(90deg,${C.primary},${C.light})`, color:"#fff", borderRadius:12, padding:"14px 32px", fontWeight:800, fontSize:16, textDecoration:"none", boxShadow:`0 8px 32px ${C.primary}66` }}>
+              🚀 {T.heroBtn}
+            </a>
+            <button onClick={() => scroll("features")} style={{ background:"#1E293B", border:"1px solid #334155", color:"#F1F5F9", borderRadius:12, padding:"14px 32px", fontWeight:700, fontSize:16, cursor:"pointer" }}>
+              ▶ {T.heroBtn2}
+            </button>
+          </div>
+          <div style={{ display:"flex", gap:16, justifyContent:"center", marginTop:20, flexWrap:"wrap" }}>
+            {["✅ No credit card required","✅ 14-day free trial","✅ Cancel anytime"].map((t,i) => (
+              <span key={i} style={{ fontSize:13, color:"#64748B" }}>{t}</span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Stats ────────────────────────────────────────────── */}
+      <section ref={statsRef} style={{ background:`linear-gradient(135deg,${C.primary},${C.purple})`, padding:"48px 24px" }}>
+        <div style={{ maxWidth:900, margin:"0 auto", display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:24 }}>
+          {T.stats.map(([v,l],i) => <StatCard key={i} value={v} label={l} start={statsVis}/>)}
+        </div>
+      </section>
+
+      {/* ── Features ─────────────────────────────────────────── */}
+      <section id="features" style={{ padding:"80px 24px", maxWidth:1100, margin:"0 auto" }}>
+        <div style={{ textAlign:"center", marginBottom:48 }}>
+          <h2 style={{ fontSize:"clamp(28px,4vw,44px)", fontWeight:900, marginBottom:12 }}>{T.feat}</h2>
+          <p style={{ fontSize:16, color:"#64748B", maxWidth:500, margin:"0 auto" }}>{T.featSub}</p>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))", gap:16 }}>
+          {FEATURES.map((f, i) => (
+            <div key={i} onClick={() => setActiveFeature(i)} style={{ background: activeFeature===i ? `${f.color}15` : "#1E293B", border:`1px solid ${activeFeature===i ? f.color : "#334155"}`, borderRadius:14, padding:20, cursor:"pointer", transition:"all 0.25s" }}>
+              <div style={{ fontSize:28, marginBottom:10 }}>{f.icon}</div>
+              <div style={{ fontWeight:700, fontSize:15, marginBottom:6, color: activeFeature===i ? f.color : "#F1F5F9" }}>
+                {lang==="am" ? f.titleAm : f.title}
+              </div>
+              <div style={{ fontSize:13, color:"#64748B", lineHeight:1.6 }}>{f.desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Ethiopian Advantages ─────────────────────────────── */}
+      <section style={{ background:"#1E293B", padding:"64px 24px" }}>
+        <div style={{ maxWidth:960, margin:"0 auto" }}>
+          <h2 style={{ fontSize:"clamp(24px,3.5vw,38px)", fontWeight:900, textAlign:"center", marginBottom:40 }}>
+            🇪🇹 Built for Ethiopia — Not adapted from abroad
+          </h2>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:14 }}>
+            {[
+              ["📱","Telebirr & CBE Birr","Native payment integration — no workarounds"],
+              ["🧾","ERCA VAT 15%","Auto-calculated on every sale, ERCA-ready reports"],
+              ["🌐","3 Languages","English · አማርኛ · Afaan Oromo interface"],
+              ["📵","Works Offline","Sales continue without internet — syncs automatically"],
+              ["🏪","Multi-branch","Merkato, Bole, Piassa — one dashboard"],
+              ["👔","Ethiopian Payroll","7% pension, progressive tax, labour law compliant"],
+              ["💱","ETB Currency","Everything in Ethiopian Birr — no USD confusion"],
+              ["🤖","AI in Amharic","Ask business questions and get answers in Amharic"],
+            ].map(([icon,title,desc],i) => (
+              <div key={i} style={{ background:"#0F172A", borderRadius:12, padding:16, border:"1px solid #334155" }}>
+                <div style={{ fontSize:24, marginBottom:8 }}>{icon}</div>
+                <div style={{ fontWeight:700, fontSize:13, marginBottom:4, color:`${C.gold}` }}>{title}</div>
+                <div style={{ fontSize:12, color:"#64748B", lineHeight:1.5 }}>{desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Pricing ──────────────────────────────────────────── */}
+      <section id="pricing" style={{ padding:"80px 24px", maxWidth:1050, margin:"0 auto" }}>
+        <div style={{ textAlign:"center", marginBottom:40 }}>
+          <h2 style={{ fontSize:"clamp(28px,4vw,44px)", fontWeight:900, marginBottom:12 }}>{T.price}</h2>
+          <p style={{ fontSize:16, color:"#64748B", marginBottom:24 }}>{T.priceSub}</p>
+          <div style={{ display:"inline-flex", background:"#1E293B", borderRadius:10, padding:4 }}>
+            {["monthly","annual"].map(b => (
+              <button key={b} onClick={() => setBilling(b)} style={{ background:billing===b?C.primary:"transparent", color:billing===b?"#fff":"#64748B", border:"none", borderRadius:8, padding:"8px 20px", cursor:"pointer", fontWeight:700, fontSize:14, textTransform:"capitalize" }}>
+                {b}{b==="annual" && <span style={{ fontSize:11, marginLeft:5, color:billing==="annual"?"#FCD34D":C.success }}> −20%</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:20 }}>
+          {PLANS.map((p, i) => (
+            <div key={i} style={{ background:"#1E293B", border:`2px solid ${p.popular ? p.color : "#334155"}`, borderRadius:18, padding:28, position:"relative", display:"flex", flexDirection:"column" }}>
+              {p.popular && <div style={{ position:"absolute", top:-1, left:"50%", transform:"translateX(-50%)", background:p.color, color:"#fff", fontSize:11, fontWeight:800, padding:"4px 16px", borderRadius:"0 0 10px 10px" }}>MOST POPULAR</div>}
+              <div style={{ marginTop:p.popular?12:0 }}>
+                <div style={{ fontWeight:900, fontSize:18, color:p.color, marginBottom:6 }}>{lang==="am" ? p.nameAm : p.name}</div>
+                <div style={{ marginBottom:20 }}>
+                  <span style={{ fontSize:38, fontWeight:900, color:"#F1F5F9" }}>ETB {billing==="annual" ? p.annual : p.price}</span>
+                  <span style={{ fontSize:13, color:"#64748B" }}>/month</span>
+                  {billing==="annual" && <div style={{ fontSize:12, color:C.success, marginTop:2 }}>Billed annually · Save ETB {(p.price-p.annual)*12}/year</div>}
+                </div>
+                <div style={{ flex:1 }}>
+                  {p.features.map((f, fi) => (
+                    <div key={fi} style={{ display:"flex", gap:8, alignItems:"flex-start", marginBottom:8, fontSize:13 }}>
+                      <span style={{ color:p.color, fontWeight:900, flexShrink:0, marginTop:1 }}>✓</span>
+                      <span style={{ color:"#CBD5E1" }}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+                <a href="/auth/login" style={{ display:"block", textAlign:"center", marginTop:20, background:p.popular?p.color:"transparent", color:p.popular?"#fff":p.color, border:`1.5px solid ${p.color}`, borderRadius:10, padding:"11px 0", fontWeight:800, fontSize:14, textDecoration:"none" }}>
+                  {T.trial} →
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ textAlign:"center", marginTop:24, fontSize:14, color:"#475569" }}>
+          All plans include 14-day free trial · No credit card required · Prices in Ethiopian Birr (ETB) · VAT not included
+        </div>
+      </section>
+
+      {/* ── Testimonials ─────────────────────────────────────── */}
+      <section id="testimonials" style={{ background:"#1E293B", padding:"72px 24px" }}>
+        <div style={{ maxWidth:1000, margin:"0 auto" }}>
+          <h2 style={{ fontSize:"clamp(24px,3.5vw,38px)", fontWeight:900, textAlign:"center", marginBottom:40 }}>{T.testi}</h2>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:16 }}>
+            {TESTIMONIALS.map((t, i) => (
+              <div key={i} style={{ background:"#0F172A", borderRadius:14, padding:24, border:"1px solid #334155" }}>
+                <div style={{ display:"flex", gap:4, marginBottom:12 }}>
+                  {Array(t.stars).fill("⭐").map((s,j)=><span key={j} style={{fontSize:14}}>{s}</span>)}
+                </div>
+                <p style={{ fontSize:14, color:"#CBD5E1", lineHeight:1.7, marginBottom:16, fontStyle:"italic" }}>"{t.text}"</p>
+                <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+                  <div style={{ width:40, height:40, borderRadius:"50%", background:`linear-gradient(135deg,${C.primary},${C.purple})`, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800, color:"#fff", fontSize:14 }}>{t.avatar}</div>
+                  <div><div style={{ fontWeight:700, fontSize:14 }}>{t.name}</div><div style={{ fontSize:12, color:"#64748B" }}>{t.role} · {t.city}</div></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Process ──────────────────────────────────────────── */}
+      <section style={{ padding:"72px 24px", maxWidth:800, margin:"0 auto", textAlign:"center" }}>
+        <h2 style={{ fontSize:"clamp(24px,3.5vw,38px)", fontWeight:900, marginBottom:40 }}>Get started in 3 steps</h2>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:20 }}>
+          {[["1","Sign up free","Create your account. No credit card. Takes 2 minutes.",C.light],["2","Configure","Run the setup wizard. Add your products, staff, and branches in under 30 minutes.",C.gold],["3","Start selling","Process your first sale, generate your first ERCA receipt, and view AI insights.",C.success]].map(([num,title,desc,color])=>(
+            <div key={num} style={{ background:"#1E293B", borderRadius:14, padding:24, border:"1px solid #334155" }}>
+              <div style={{ width:48, height:48, borderRadius:"50%", background:`${color}22`, color, fontWeight:900, fontSize:20, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>{num}</div>
+              <div style={{ fontWeight:800, fontSize:16, marginBottom:8, color }}>{title}</div>
+              <div style={{ fontSize:13, color:"#64748B", lineHeight:1.6 }}>{desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── CTA ──────────────────────────────────────────────── */}
+      <section style={{ background:`linear-gradient(135deg,${C.primary},${C.purple})`, padding:"72px 24px", textAlign:"center" }}>
+        <h2 style={{ fontSize:"clamp(28px,4vw,48px)", fontWeight:900, marginBottom:12, color:"#fff" }}>{T.cta}</h2>
+        <p style={{ fontSize:16, color:"rgba(255,255,255,0.75)", marginBottom:32 }}>{T.ctaSub}</p>
+        <a href="/auth/login" style={{ display:"inline-block", background:"#fff", color:C.primary, borderRadius:12, padding:"16px 40px", fontWeight:900, fontSize:18, textDecoration:"none", boxShadow:"0 8px 32px rgba(0,0,0,0.3)" }}>
+          🚀 {T.ctaBtn}
+        </a>
+        <div style={{ marginTop:20, color:"rgba(255,255,255,0.6)", fontSize:13 }}>14-day free trial · No credit card · Cancel anytime</div>
+      </section>
+
+      {/* ── Footer ───────────────────────────────────────────── */}
+      <footer id="contact" style={{ background:"#0A0F1E", padding:"48px 24px", borderTop:"1px solid #1E293B" }}>
+        <div style={{ maxWidth:1000, margin:"0 auto" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr", gap:32, marginBottom:40 }}>
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14 }}>
+                <div style={{ width:36, height:36, borderRadius:10, background:`linear-gradient(135deg,${C.primary},${C.gold})`, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:900, color:"#fff", fontSize:16 }}>E</div>
+                <span style={{ fontWeight:900, fontSize:16 }}>EthioPOS</span>
+              </div>
+              <p style={{ fontSize:13, color:"#475569", lineHeight:1.7, maxWidth:260 }}>Ethiopia's most complete AI-powered ERP platform for retail, pharmacies, restaurants, and manufacturing SMEs.</p>
+              <div style={{ marginTop:14, display:"flex", flexDirection:"column", gap:6 }}>
+                {[["📧","support@ethiopos.et"],["📞","+251 115 570 000"],["📍","Bole Sub-City, Addis Ababa"]].map(([icon,text])=>(
+                  <div key={text} style={{ fontSize:13, color:"#475569", display:"flex", gap:8 }}><span>{icon}</span><span>{text}</span></div>
+                ))}
+              </div>
+            </div>
+            {[["Product",["Features","Pricing","Mobile App","API Docs","Roadmap"]],["Company",["About Us","Blog","Careers","Press","Partners"]],["Support",["Help Center","Video Tutorials","Community","Status Page","Contact"]]].map(([title,links])=>(
+              <div key={title}>
+                <div style={{ fontWeight:700, fontSize:13, color:"#94A3B8", marginBottom:14, textTransform:"uppercase", letterSpacing:1 }}>{title}</div>
+                {(links as string[]).map(l=><div key={l} style={{ fontSize:13, color:"#475569", marginBottom:8, cursor:"pointer" }}>{l}</div>)}
+              </div>
+            ))}
+          </div>
+          <div style={{ borderTop:"1px solid #1E293B", paddingTop:20, display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10 }}>
+            <div style={{ fontSize:12, color:"#334155" }}>© 2026 EthioPOS. All rights reserved. · {T.footer}</div>
+            <div style={{ fontSize:12, color:"#334155" }}>ERCA VAT Registered · Ethiopian Business · ETB Currency</div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
